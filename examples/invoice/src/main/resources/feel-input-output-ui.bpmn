@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bpmn:definitions xmlns:bpmn="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:bpmndi="http://www.omg.org/spec/BPMN/20100524/DI" xmlns:dc="http://www.omg.org/spec/DD/20100524/DC" xmlns:camunda="http://camunda.org/schema/1.0/bpmn" xmlns:di="http://www.omg.org/spec/DD/20100524/DI" xmlns:modeler="http://camunda.org/schema/modeler/1.0" id="Definitions_0m8fovu" targetNamespace="http://bpmn.io/schema/bpmn" exporter="Camunda Modeler" exporterVersion="5.31.0" modeler:executionPlatform="Camunda Platform" modeler:executionPlatformVersion="7.22.0">
+  <bpmn:process id="feelComplexContextProcess-ui" name="feelComplexContextProcess-ui" isExecutable="true" camunda:historyTimeToLive="180">
+    <bpmn:startEvent id="StartEvent_1">
+      <bpmn:outgoing>Flow_0u1cslj</bpmn:outgoing>
+    </bpmn:startEvent>
+    <bpmn:endEvent id="Event_0r43249">
+      <bpmn:incoming>Flow_16glmzz</bpmn:incoming>
+    </bpmn:endEvent>
+    <bpmn:serviceTask id="Activity_06n2ydb" camunda:class="org.camunda.bpm.example.invoice.FeelContextDelegate">
+      <bpmn:extensionElements>
+        <camunda:inputOutput>
+          <camunda:inputParameter name="context">
+            <camunda:script scriptFormat="feel">        {
+          text: "Hello from FEEL",
+          numbers: [1, 2, 3],
+          addOne: function(x) x + 1,
+          innerContext: {
+            content: "contentFromInnerContext",
+            sky: "blue"
+          }
+        }</camunda:script>
+          </camunda:inputParameter>
+        </camunda:inputOutput>
+      </bpmn:extensionElements>
+      <bpmn:incoming>Flow_13q9tnb</bpmn:incoming>
+      <bpmn:outgoing>Flow_19l7j27</bpmn:outgoing>
+    </bpmn:serviceTask>
+    <bpmn:sequenceFlow id="Flow_0u1cslj" sourceRef="StartEvent_1" targetRef="Activity_0cogyf4" />
+    <bpmn:sequenceFlow id="Flow_19l7j27" sourceRef="Activity_06n2ydb" targetRef="Activity_0vz9lro" />
+    <bpmn:sequenceFlow id="Flow_16glmzz" sourceRef="Activity_0vz9lro" targetRef="Event_0r43249" />
+    <bpmn:userTask id="Activity_0vz9lro">
+      <bpmn:incoming>Flow_19l7j27</bpmn:incoming>
+      <bpmn:outgoing>Flow_16glmzz</bpmn:outgoing>
+    </bpmn:userTask>
+    <bpmn:task id="Activity_0cogyf4" camunda:asyncAfter="true">
+      <bpmn:incoming>Flow_0u1cslj</bpmn:incoming>
+      <bpmn:outgoing>Flow_13q9tnb</bpmn:outgoing>
+    </bpmn:task>
+    <bpmn:sequenceFlow id="Flow_13q9tnb" sourceRef="Activity_0cogyf4" targetRef="Activity_06n2ydb" />
+  </bpmn:process>
+  <bpmndi:BPMNDiagram id="BPMNDiagram_1">
+    <bpmndi:BPMNPlane id="BPMNPlane_1" bpmnElement="Process_0cz35zj">
+      <bpmndi:BPMNShape id="Activity_1tn3860_di" bpmnElement="Activity_06n2ydb">
+        <dc:Bounds x="350" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Event_0r43249_di" bpmnElement="Event_0r43249">
+        <dc:Bounds x="722" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_1ve31xg_di" bpmnElement="Activity_0vz9lro">
+        <dc:Bounds x="520" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="StartEvent_1_di" bpmnElement="StartEvent_1">
+        <dc:Bounds x="152" y="102" width="36" height="36" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNShape id="Activity_0cogyf4_di" bpmnElement="Activity_0cogyf4">
+        <dc:Bounds x="220" y="80" width="100" height="80" />
+      </bpmndi:BPMNShape>
+      <bpmndi:BPMNEdge id="Flow_0u1cslj_di" bpmnElement="Flow_0u1cslj">
+        <di:waypoint x="188" y="120" />
+        <di:waypoint x="220" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_19l7j27_di" bpmnElement="Flow_19l7j27">
+        <di:waypoint x="450" y="120" />
+        <di:waypoint x="520" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_16glmzz_di" bpmnElement="Flow_16glmzz">
+        <di:waypoint x="620" y="120" />
+        <di:waypoint x="722" y="120" />
+      </bpmndi:BPMNEdge>
+      <bpmndi:BPMNEdge id="Flow_13q9tnb_di" bpmnElement="Flow_13q9tnb">
+        <di:waypoint x="320" y="120" />
+        <di:waypoint x="350" y="120" />
+      </bpmndi:BPMNEdge>
+    </bpmndi:BPMNPlane>
+  </bpmndi:BPMNDiagram>
+</bpmn:definitions>
