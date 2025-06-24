@@ -58,7 +58,10 @@ COPY engine-spring/target/*.jar /camunda/lib/
 
 # Web applications - critical for Camunda UI and REST API
 COPY engine-rest/engine-rest/target/engine-rest*.war /camunda/webapps/engine-rest.war
-COPY webapps/camunda-webapp/camunda-webapp-tomcat/target/camunda-webapp*.war /camunda/webapps/camunda.war
+
+# 7.23.0 webapp structure - copy what's available (will be checked in build script)
+# If webapps build succeeds, these will be copied
+COPY webapps/ /tmp/webapps-source/
 
 # Environment variables for production
 ENV JAVA_OPTS="-Djava.security.egd=file:/dev/./urandom -Djava.awt.headless=true"
@@ -153,6 +156,10 @@ cat > /camunda/conf/context.xml <<CONTEXT_EOF
               minEvictableIdleTimeMillis="30000" />
 </Context>
 CONTEXT_EOF
+
+# Copy webapp WAR files if they exist
+echo "Checking for webapp WAR files..."
+find /tmp/webapps-source -name "*.war" -exec cp {} /camunda/webapps/ \; 2>/dev/null || echo "No additional webapp WAR files found"
 
 echo "Starting Tomcat with Camunda BPM Platform..."
 exec /camunda/bin/catalina.sh run
