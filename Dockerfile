@@ -1,11 +1,11 @@
-# Camunda BPM Platform 7 - Independent Docker Image
+# Camunda BPM Platform 7 - Production Ready Docker Image
 # Base: Eclipse Temurin JRE 17
 FROM eclipse-temurin:17-jre
 
 # Metadata
 LABEL maintainer="Your Organization"
 LABEL version="7.x-custom"
-LABEL description="Camunda BPM Platform 7 - Custom Build for EKS"
+LABEL description="Camunda BPM Platform 7 - Production Ready Build for EKS"
 
 # Install required packages
 RUN apt-get update && apt-get install -y \
@@ -13,6 +13,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     unzip \
     xmlstarlet \
+    gettext-base \
     && rm -rf /var/lib/apt/lists/*
 
 # Create camunda user and directories
@@ -35,10 +36,12 @@ RUN wget -O /tmp/tomcat.tar.gz \
            /opt/camunda/webapps/manager \
     && ln -s /opt/camunda /camunda
 
-# Add database drivers
-RUN wget -O /camunda/lib/postgresql-42.7.3.jar \
-    "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar" \
-    && wget -O /camunda/lib/mysql-connector-j-8.4.0.jar \
+# Download database drivers at BUILD TIME (not runtime)
+# Ensure lib directory exists first
+RUN mkdir -p /camunda/lib && \
+    wget -O /camunda/lib/postgresql-42.7.3.jar \
+    "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar" && \
+    wget -O /camunda/lib/mysql-connector-j-8.4.0.jar \
     "https://repo1.maven.org/maven2/com/mysql/mysql-connector-j/8.4.0/mysql-connector-j-8.4.0.jar"
 
 # Copy built artifacts (will be available after Maven build in pipeline)
@@ -47,9 +50,9 @@ COPY engine/target/*.jar /camunda/lib/
 COPY engine-dmn/*/target/*.jar /camunda/lib/
 COPY engine-spring/target/*.jar /camunda/lib/
 
-# Web applications
-COPY engine-rest/engine-rest/target/engine-rest*.war /camunda/webapps/engine-rest.war
-COPY webapps/camunda-webapp/camunda-webapp-tomcat/target/camunda-webapp*.war /camunda/webapps/camunda.war
+# Web applications - WAR files from assembly modules
+COPY engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /camunda/webapps/engine-rest.war
+COPY webapps/assembly/target/camunda-webapp.war /camunda/webapps/camunda.war
 
 # Environment variables for production
 ENV JAVA_OPTS="-Djava.security.egd=file:/dev/./urandom -Djava.awt.headless=true"
@@ -69,28 +72,11 @@ ENV CAMUNDA_BPM_RUN_CORS_ENABLED=false
 ENV CAMUNDA_BPM_AUTHORIZATION_ENABLED=true
 ENV CAMUNDA_BPM_DATABASE_SCHEMA_UPDATE=true
 
-# Create startup script
-RUN cat > /camunda/bin/camunda-start.sh <<'EOF'
-#!/bin/bash
-set -e
+# Create configuration directory and files at BUILD TIME
+RUN mkdir -p /camunda/conf
 
-echo "=== Camunda BPM Platform 7 Startup ==="
-echo "Java Version: $(java -version 2>&1 | head -1)"
-echo "Database Driver: $DB_DRIVER"
-echo "Database URL: $DB_URL"
-echo "Memory Settings: $CATALINA_OPTS"
-
-# Wait for database if WAIT_FOR is set
-if [ ! -z "$WAIT_FOR" ]; then
-    echo "Waiting for database at $WAIT_FOR..."
-    timeout 120 bash -c 'until echo > /dev/tcp/${WAIT_FOR%:*}/${WAIT_FOR#*:}; do sleep 2; echo "Waiting..."; done'
-    echo "Database is ready!"
-fi
-
-# Configure database in bpm-platform.xml if not exists
-if [ ! -f /camunda/conf/bpm-platform.xml ]; then
-    echo "Creating bpm-platform.xml configuration..."
-    cat > /camunda/conf/bpm-platform.xml <<PLATFORM_EOF
+# Create bpm-platform.xml at BUILD TIME
+RUN cat > /camunda/conf/bpm-platform.xml << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <bpm-platform xmlns="http://www.camunda.org/schema/1.0/BpmPlatform"
               xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -110,18 +96,17 @@ if [ ! -f /camunda/conf/bpm-platform.xml ]; then
     
     <properties>
       <property name="history">full</property>
-      <property name="databaseSchemaUpdate">\${DB_VALIDATE_ON_MIGRATE}</property>
-      <property name="authorizationEnabled">\${CAMUNDA_BPM_AUTHORIZATION_ENABLED}</property>
+      <property name="databaseSchemaUpdate">true</property>
+      <property name="authorizationEnabled">true</property>
       <property name="jobExecutorDeploymentAware">true</property>
     </properties>
   </process-engine>
 
 </bpm-platform>
-PLATFORM_EOF
-fi
+EOF
 
-# Configure context.xml for database connection
-cat > /camunda/conf/context.xml <<CONTEXT_EOF
+# Create context.xml with hardcoded PostgreSQL configuration
+RUN cat > /camunda/conf/context.xml << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <Context>
     <Resource name="jdbc/ProcessEngine"
@@ -129,12 +114,12 @@ cat > /camunda/conf/context.xml <<CONTEXT_EOF
               type="javax.sql.DataSource"
               factory="org.apache.tomcat.jdbc.pool.DataSourceFactory"
               uniqueResourceName="process-engine"
-              driverClassName="\${DB_DRIVER}"
-              url="\${DB_URL}"
-              username="\${DB_USERNAME}"
-              password="\${DB_PASSWORD}"
-              maxActive="\${DB_CONN_MAXACTIVE}"
-              minIdle="\${DB_CONN_MINIDLE}"
+              driverClassName="org.postgresql.Driver"
+              url="jdbc:postgresql://camunda-postgres-postgresql.database.svc.cluster.local:5432/postgres"
+              username="postgres"
+              password="postgres"
+              maxActive="20"
+              minIdle="5"
               maxIdle="20"
               testOnBorrow="true"
               testWhileIdle="true"
@@ -143,21 +128,19 @@ cat > /camunda/conf/context.xml <<CONTEXT_EOF
               timeBetweenEvictionRunsMillis="30000"
               minEvictableIdleTimeMillis="30000" />
 </Context>
-CONTEXT_EOF
-
-echo "Starting Tomcat with Camunda BPM Platform..."
-exec /camunda/bin/catalina.sh run
 EOF
 
-# Make startup script executable
+# Copy and setup startup script
+COPY startup.sh /camunda/bin/camunda-start.sh
 RUN chmod +x /camunda/bin/camunda-start.sh
 
 # Health check for Kubernetes
 HEALTHCHECK --interval=30s --timeout=15s --start-period=120s --retries=3 \
   CMD curl -f http://localhost:8080/camunda/app/welcome/default/#!/welcome || exit 1
 
-# Set proper permissions
-RUN chown -R camunda:camunda /camunda /opt/camunda
+# Set proper permissions and make scripts executable
+RUN chmod +x /opt/camunda/bin/*.sh && \
+    chown -R camunda:camunda /camunda /opt/camunda
 
 # Switch to camunda user
 USER camunda
