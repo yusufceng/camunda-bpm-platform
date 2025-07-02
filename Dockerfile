@@ -3,8 +3,8 @@
 FROM eclipse-temurin:17-jre
 
 # Metadata
-LABEL maintainer="Your Organization"
-LABEL version="7.x-custom"
+LABEL maintainer="Cadenza Flow-Yusuf Coşkun"
+LABEL version="7.23.0"
 LABEL description="Camunda BPM Platform 7 - Production Ready Build for EKS"
 
 # Install required packages
@@ -24,16 +24,18 @@ RUN mkdir -p /camunda /opt/camunda
 COPY distro/tomcat/assembly/target/camunda-tomcat-assembly-*.tar.gz /tmp/camunda-tomcat.tar.gz
 RUN tar -xzf /tmp/camunda-tomcat.tar.gz -C /opt/camunda --strip-components=1 \
     && rm /tmp/camunda-tomcat.tar.gz \
-    && ln -s /opt/camunda /camunda
+    && ln -s /opt/camunda /camunda \
+    && echo "=== Assembly Directory Structure Debug ===" \
+    && find /opt/camunda -maxdepth 3 -type d | head -20
 
 # Download only PostgreSQL driver (not included in assembly)
-RUN TOMCAT_DIR=$(find /opt/camunda/server -name "apache-tomcat-*" -type d) && \
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d) && \
     wget -O ${TOMCAT_DIR}/lib/postgresql-42.7.3.jar \
     "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar"
 
 # Environment variables for production
-ENV CATALINA_HOME=/opt/camunda/server/apache-tomcat-9.0.93
-ENV CATALINA_BASE=/opt/camunda/server/apache-tomcat-9.0.93
+ENV CATALINA_HOME=/opt/camunda/apache-tomcat-9.0.93
+ENV CATALINA_BASE=/opt/camunda/apache-tomcat-9.0.93
 ENV JAVA_OPTS="-Djava.security.egd=file:/dev/./urandom -Djava.awt.headless=true"
 ENV CATALINA_OPTS="-Xms1g -Xmx2g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication"
 
@@ -54,7 +56,7 @@ ENV CAMUNDA_BPM_DATABASE_SCHEMA_UPDATE=true
 # Update configuration files for runtime env vars
 COPY distro/tomcat/assembly/src/conf/bpm-platform.xml /tmp/bpm-platform.xml
 COPY distro/tomcat/assembly/src/conf/server.xml /tmp/server.xml
-RUN TOMCAT_DIR=$(find /opt/camunda/server -name "apache-tomcat-*" -type d) && \
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d) && \
     cp /tmp/bpm-platform.xml ${TOMCAT_DIR}/conf/bpm-platform.xml && \
     cp /tmp/server.xml ${TOMCAT_DIR}/conf/server.xml && \
     rm /tmp/bpm-platform.xml /tmp/server.xml
@@ -65,7 +67,7 @@ COPY distro/tomcat/assembly/src/start-camunda.sh /opt/camunda/start-camunda.sh
 # Set proper permissions and make scripts executable
 RUN chmod -R 755 /opt/camunda /camunda && \
     chmod +x /opt/camunda/start-camunda.sh && \
-    TOMCAT_DIR=$(find /opt/camunda/server -name "apache-tomcat-*" -type d) && \
+    TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d) && \
     chmod +x ${TOMCAT_DIR}/bin/*.sh && \
     mkdir -p ${TOMCAT_DIR}/work/Catalina/localhost && \
     mkdir -p ${TOMCAT_DIR}/conf/Catalina/localhost && \
