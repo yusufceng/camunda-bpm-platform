@@ -71,16 +71,6 @@ ENV CATALINA_BASE=/opt/camunda
 ENV JAVA_OPTS="-Djava.security.egd=file:/dev/./urandom -Djava.awt.headless=true"
 ENV CATALINA_OPTS="-Xms1g -Xmx2g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication"
 
-# Set default environment variables for Database connection
-ENV DB_DRIVER=org.postgresql.Driver
-ENV DB_URL=jdbc:postgresql://camunda-postgres-postgresql.database.svc.cluster.local:5432/camunda
-ENV DB_USERNAME=camunda
-ENV DB_PASSWORD=camunda
-ENV DB_SCHEMA_UPDATE=true
-ENV AUTH_ENABLED=true
-ENV DB_CONN_MAXACTIVE=20
-ENV DB_CONN_MINIDLE=5
-
 # Set environment variables for Camunda Webapp configuration
 ENV CAMUNDA_BPM_RUN_CORS_ENABLED=false
 ENV CAMUNDA_BPM_AUTHORIZATION_ENABLED=true
