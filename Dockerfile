@@ -31,7 +31,6 @@ RUN TOMCAT_DIR="/opt/camunda" \
     && echo "TOMCAT_DIR=${TOMCAT_DIR}"
 
 # Download PostgreSQL driver to correct location
-# BURAYA DÜZELTME EKLENDİ: postgresql.jar'ı indirmeden önce 'lib' dizininin varlığını garantilemek için mkdir -p kullanıldı.
 RUN TOMCAT_DIR="/opt/camunda" \
     && mkdir -p ${TOMCAT_DIR}/lib \
     && wget -O ${TOMCAT_DIR}/lib/postgresql-42.7.3.jar \
@@ -40,7 +39,9 @@ RUN TOMCAT_DIR="/opt/camunda" \
 # Copy WAR files (pre-built in Tekton) to webapps directory
 COPY distro/tomcat/webapp/target/camunda-webapp*.war /tmp/
 COPY engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
+# BURAYA DÜZELTME EKLENDİ: .war dosyalarını kopyalamadan önce 'webapps' dizininin varlığını garantilemek için mkdir -p kullanıldı.
 RUN TOMCAT_DIR="/opt/camunda" \
+    && mkdir -p ${TOMCAT_DIR}/webapps \
     && cp /tmp/camunda-webapp*.war ${TOMCAT_DIR}/webapps/camunda.war \
     && cp /tmp/camunda-engine-rest-*-tomcat.war ${TOMCAT_DIR}/webapps/engine-rest.war \
     && rm /tmp/camunda-webapp*.war /tmp/camunda-engine-rest-*-tomcat.war
