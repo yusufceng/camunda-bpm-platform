@@ -114,8 +114,14 @@ RUN echo '#!/bin/bash' > /opt/camunda/start-camunda.sh && \
     echo 'echo "Using Tomcat directory: $TOMCAT_DIR"' >> /opt/camunda/start-camunda.sh && \
     echo '' >> /opt/camunda/start-camunda.sh && \
     echo '# Process configuration templates with envsubst' >> /opt/camunda/start-camunda.sh && \
+    echo 'echo "DB_URL=$DB_URL"' >> /opt/camunda/start-camunda.sh && \
+    echo 'export DB_URL' >> /opt/camunda/start-camunda.sh && \
     echo 'envsubst < /tmp/bpm-platform.xml.template > "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
     echo 'envsubst < /tmp/server.xml.template > "$TOMCAT_DIR/conf/server.xml"' >> /opt/camunda/start-camunda.sh && \
+    echo '' >> /opt/camunda/start-camunda.sh && \
+    echo '# Debug: Show processed bpm-platform.xml content' >> /opt/camunda/start-camunda.sh && \
+    echo 'echo "=== Processed bpm-platform.xml jdbcUrl ==="' >> /opt/camunda/start-camunda.sh && \
+    echo 'grep jdbcUrl "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
     echo '' >> /opt/camunda/start-camunda.sh && \
     echo '# Start Tomcat' >> /opt/camunda/start-camunda.sh && \
     echo 'exec "$TOMCAT_DIR/bin/catalina.sh" run' >> /opt/camunda/start-camunda.sh
