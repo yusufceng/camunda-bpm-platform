@@ -1,11 +1,32 @@
-# Camunda BPM Platform 7 - Production Ready Docker Image
-# Base: Eclipse Temurin JRE 17
+# Camunda BPM Platform 7.23.0 - Production Ready Docker Image
+# Multi-stage build: Build + Runtime
+FROM maven:3.9-eclipse-temurin-17 AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy source code
+COPY . .
+
+# Build Camunda with our own JARs and assembly
+RUN mvn clean package \
+    -pl commons/logging,commons/utils,commons/typed-values,engine-dmn/feel-api,engine-dmn/feel-juel,engine-dmn/feel-scala,engine-dmn/engine,engine,engine-rest/engine-rest,engine-rest/assembly,engine-spring,webapps,distro/tomcat/webapp,distro/tomcat/assembly \
+    -am \
+    -T 2C \
+    -DskipTests \
+    -Dcheckstyle.skip=true \
+    -Dpmd.skip=true \
+    -Dspotbugs.skip=true \
+    -Dmaven.javadoc.skip=true \
+    -Dmaven.source.skip=true
+
+# Runtime stage
 FROM eclipse-temurin:17-jre
 
 # Metadata
 LABEL maintainer="Cadenza Flow-Yusuf Coşkun"
 LABEL version="7.23.0"
-LABEL description="Camunda BPM Platform 7 - Production Ready Build for EKS"
+LABEL description="Camunda BPM Platform 7.23.0 - Production Ready Build for EKS"
 
 # Install required packages
 RUN apt-get update && apt-get install -y \
@@ -20,14 +41,14 @@ RUN apt-get update && apt-get install -y \
 RUN groupadd -r camunda && useradd -r -g camunda camunda
 RUN mkdir -p /camunda /opt/camunda
 
-# Extract Camunda Tomcat Assembly (contains Tomcat + all dependencies)
-COPY distro/tomcat/assembly/target/camunda-tomcat-assembly-*.tar.gz /tmp/camunda-tomcat.tar.gz
+# Copy and extract Camunda Tomcat Assembly from builder stage
+COPY --from=builder /app/distro/tomcat/assembly/target/camunda-tomcat-assembly-*.tar.gz /tmp/camunda-tomcat.tar.gz
 RUN tar -xzf /tmp/camunda-tomcat.tar.gz -C /opt/camunda --strip-components=1 \
     && rm /tmp/camunda-tomcat.tar.gz \
     && ln -s /opt/camunda /camunda
 
-# Find Tomcat directory and set up environment
-RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d) \
+# Find Tomcat directory and set up environment (assembly uses server/ directory)
+RUN TOMCAT_DIR=$(find /opt/camunda/server -name "apache-tomcat-*" -type d | head -1) \
     && echo "TOMCAT_DIR=${TOMCAT_DIR}" \
     && ln -sf ${TOMCAT_DIR}/conf /opt/camunda/conf \
     && ln -sf ${TOMCAT_DIR}/bin /opt/camunda/bin \
@@ -36,14 +57,14 @@ RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d) \
     && ln -sf ${TOMCAT_DIR}/logs /opt/camunda/logs
 
 # Download PostgreSQL driver to correct location
-RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d) \
+RUN TOMCAT_DIR=$(find /opt/camunda/server -name "apache-tomcat-*" -type d | head -1) \
     && wget -O ${TOMCAT_DIR}/lib/postgresql-42.7.3.jar \
     "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar"
 
-# Copy WAR files to webapps directory  
-COPY distro/tomcat/webapp/target/camunda-webapp*.war /tmp/
-COPY engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
-RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d) \
+# Copy WAR files from builder stage to webapps directory  
+COPY --from=builder /app/distro/tomcat/webapp/target/camunda-webapp*.war /tmp/
+COPY --from=builder /app/engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
+RUN TOMCAT_DIR=$(find /opt/camunda/server -name "apache-tomcat-*" -type d | head -1) \
     && cp /tmp/camunda-webapp*.war ${TOMCAT_DIR}/webapps/camunda.war \
     && cp /tmp/camunda-engine-rest-*-tomcat.war ${TOMCAT_DIR}/webapps/engine-rest.war \
     && rm /tmp/camunda-webapp*.war /tmp/camunda-engine-rest-*-tomcat.war
@@ -68,29 +89,29 @@ ENV CAMUNDA_BPM_RUN_CORS_ENABLED=false
 ENV CAMUNDA_BPM_AUTHORIZATION_ENABLED=true
 ENV CAMUNDA_BPM_DATABASE_SCHEMA_UPDATE=true
 
-# Copy configuration templates
-COPY distro/tomcat/assembly/src/conf/bpm-platform.xml /tmp/bpm-platform.xml.template
-COPY distro/tomcat/assembly/src/conf/server.xml /tmp/server.xml.template
+# Copy configuration templates from builder stage
+COPY --from=builder /app/distro/tomcat/assembly/src/conf/bpm-platform.xml /tmp/bpm-platform.xml.template
+COPY --from=builder /app/distro/tomcat/assembly/src/conf/server.xml /tmp/server.xml.template
 
 # Create startup script with envsubst
 RUN echo '#!/bin/bash' > /opt/camunda/start-camunda.sh && \
     echo 'set -e' >> /opt/camunda/start-camunda.sh && \
     echo '' >> /opt/camunda/start-camunda.sh && \
     echo '# Find Tomcat directory' >> /opt/camunda/start-camunda.sh && \
-    echo 'TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d)' >> /opt/camunda/start-camunda.sh && \
+    echo 'TOMCAT_DIR=$(find /opt/camunda/server -name "apache-tomcat-*" -type d | head -1)' >> /opt/camunda/start-camunda.sh && \
     echo 'echo "Using Tomcat directory: $TOMCAT_DIR"' >> /opt/camunda/start-camunda.sh && \
     echo '' >> /opt/camunda/start-camunda.sh && \
     echo '# Process configuration templates with envsubst' >> /opt/camunda/start-camunda.sh && \
-    echo 'envsubst < /tmp/bpm-platform.xml.template > $TOMCAT_DIR/conf/bpm-platform.xml' >> /opt/camunda/start-camunda.sh && \
-    echo 'envsubst < /tmp/server.xml.template > $TOMCAT_DIR/conf/server.xml' >> /opt/camunda/start-camunda.sh && \
+    echo 'envsubst < /tmp/bpm-platform.xml.template > "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
+    echo 'envsubst < /tmp/server.xml.template > "$TOMCAT_DIR/conf/server.xml"' >> /opt/camunda/start-camunda.sh && \
     echo '' >> /opt/camunda/start-camunda.sh && \
     echo '# Start Tomcat' >> /opt/camunda/start-camunda.sh && \
-    echo 'exec $TOMCAT_DIR/bin/catalina.sh run' >> /opt/camunda/start-camunda.sh
+    echo 'exec "$TOMCAT_DIR/bin/catalina.sh" run' >> /opt/camunda/start-camunda.sh
 
 # Set proper permissions and make scripts executable
 RUN chmod -R 755 /opt/camunda /camunda && \
     chmod +x /opt/camunda/start-camunda.sh && \
-    TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d) && \
+    TOMCAT_DIR=$(find /opt/camunda/server -name "apache-tomcat-*" -type d | head -1) && \
     chmod +x ${TOMCAT_DIR}/bin/*.sh && \
     mkdir -p ${TOMCAT_DIR}/work/Catalina/localhost && \
     mkdir -p ${TOMCAT_DIR}/conf/Catalina/localhost && \
