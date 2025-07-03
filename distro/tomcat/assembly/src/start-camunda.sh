@@ -10,9 +10,6 @@ export AUTH_ENABLED=${AUTH_ENABLED:-true}
 export DB_CONN_MAXACTIVE=${DB_CONN_MAXACTIVE:-20}
 export DB_CONN_MINIDLE=${DB_CONN_MINIDLE:-5}
 
-# Tomcat dizinini bul
-CATALINA_HOME="$(dirname "$0")/server/apache-tomcat-${version.tomcat}"
-
 # bpm-platform.xml dosyasını güncelle
 envsubst < /tmp/bpm-platform.xml.template > "$CATALINA_HOME/conf/bpm-platform.xml"
 
