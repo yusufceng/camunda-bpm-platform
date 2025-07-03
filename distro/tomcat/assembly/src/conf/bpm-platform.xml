@@ -22,7 +22,10 @@
       <property name="jdbcUrl">${DB_URL:-jdbc:postgresql://camunda-postgres-postgresql.database.svc.cluster.local:5432/camunda}</property>
       <property name="jdbcUsername">${DB_USERNAME:-camunda}</property>
       <property name="jdbcPassword">${DB_PASSWORD:-camunda}</property>
-      <property name="jdbcMaxActive">${DB_CONN_MAXACTIVE:-20}</property>
+      
+      <!-- Connection Pool Settings -->
+      <property name="jdbcMaxActiveConnections">${DB_CONN_MAXACTIVE:-20}</property>
+      <property name="jdbcMinIdle">${DB_CONN_MINIDLE:-5}</property>
     </properties>
 
     <plugins>
