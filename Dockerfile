@@ -11,6 +11,7 @@ RUN apt-get update && apt-get install -y \
     unzip \
     xmlstarlet \
     gettext-base \
+    file \
     && rm -rf /var/lib/apt/lists/*
 
 # Create Camunda user and group
