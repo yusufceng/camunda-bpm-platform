@@ -9,7 +9,6 @@
   <process-engine name="default">
     <job-acquisition>default</job-acquisition>
     <configuration>org.camunda.bpm.engine.impl.cfg.StandaloneProcessEngineConfiguration</configuration>
-    <datasource>java:jdbc/ProcessEngine</datasource>
 
     <properties>
       <property name="history">full</property>
@@ -20,11 +19,10 @@
 
       <!-- Database Configuration -->
       <property name="jdbcDriver">${DB_DRIVER:-org.postgresql.Driver}</property>
-      <property name="jdbcUrl">${DB_URL:-jdbc:postgresql://localhost:5432/camunda}</property>
+      <property name="jdbcUrl">${DB_URL:-jdbc:postgresql://camunda-postgres-postgresql.database.svc.cluster.local:5432/camunda}</property>
       <property name="jdbcUsername">${DB_USERNAME:-camunda}</property>
       <property name="jdbcPassword">${DB_PASSWORD:-camunda}</property>
       <property name="jdbcMaxActive">${DB_CONN_MAXACTIVE:-20}</property>
-      <property name="jdbcMinIdle">${DB_CONN_MINIDLE:-5}</property>
     </properties>
 
     <plugins>
