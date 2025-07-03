@@ -26,17 +26,12 @@ RUN tar -xzf /tmp/camunda-tomcat.tar.gz -C /opt/camunda --strip-components=1 \
     && rm /tmp/camunda-tomcat.tar.gz \
     && ln -s /opt/camunda /camunda
 
-# Düzeltilen Kısım: Tomcat ana dizini doğrudan /opt/camunda olarak belirlendi.
-# 'find' komutu kaldırıldı.
+# Düzeltilen Kısım: TOMCAT_DIR tanımlandı, ancak gereksiz sembolik linkler kaldırıldı.
+# Tomcat'in alt dizinleri (conf, bin, lib, webapps, logs) zaten /opt/camunda altında gerçek dizinlerdir.
 RUN TOMCAT_DIR="/opt/camunda" \
-    && echo "TOMCAT_DIR=${TOMCAT_DIR}" \
-    && ln -sf ${TOMCAT_DIR}/conf /opt/camunda/conf \
-    && ln -sf ${TOMCAT_DIR}/bin /opt/camunda/bin \
-    && ln -sf ${TOMCAT_DIR}/lib /opt/camunda/lib \
-    && ln -sf ${TOMCAT_DIR}/webapps /opt/camunda/webapps \
-    && ln -sf ${TOMCAT_DIR}/logs /opt/camunda/logs
+    && echo "TOMCAT_DIR=${TOMCAT_DIR}"
 
-# Düzeltilen Kısım: PostgreSQL sürücüsü için Tomcat dizini doğru olarak kullanıldı.
+# Download PostgreSQL driver to correct location
 RUN TOMCAT_DIR="/opt/camunda" \
     && wget -O ${TOMCAT_DIR}/lib/postgresql-42.7.3.jar \
     "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar"
@@ -44,7 +39,6 @@ RUN TOMCAT_DIR="/opt/camunda" \
 # Copy WAR files (pre-built in Tekton) to webapps directory
 COPY distro/tomcat/webapp/target/camunda-webapp*.war /tmp/
 COPY engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
-# Düzeltilen Kısım: WAR dosyaları doğru Tomcat webapps dizinine kopyalandı.
 RUN TOMCAT_DIR="/opt/camunda" \
     && cp /tmp/camunda-webapp*.war ${TOMCAT_DIR}/webapps/camunda.war \
     && cp /tmp/camunda-engine-rest-*-tomcat.war ${TOMCAT_DIR}/webapps/engine-rest.war \
@@ -74,7 +68,7 @@ ENV CAMUNDA_BPM_DATABASE_SCHEMA_UPDATE=true
 COPY distro/tomcat/assembly/src/conf/bpm-platform.xml /tmp/bpm-platform.xml.template
 COPY distro/tomcat/assembly/src/conf/server.xml /tmp/server.xml.template
 
-# Düzeltilen Kısım: Startup script içinde TOMCAT_DIR doğru olarak ayarlandı.
+# Create startup script with envsubst
 RUN echo '#!/bin/bash' > /opt/camunda/start-camunda.sh && \
     echo 'set -e' >> /opt/camunda/start-camunda.sh && \
     echo '' >> /opt/camunda/start-camunda.sh && \
@@ -86,12 +80,14 @@ RUN echo '#!/bin/bash' > /opt/camunda/start-camunda.sh && \
     echo 'envsubst < /tmp/bpm-platform.xml.template > "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
     echo 'envsubst < /tmp/server.xml.template > "$TOMCAT_DIR/conf/server.xml"' >> /opt/camunda/start-camunda.sh && \
     echo '' >> /opt/camunda/start-camunda.sh && \
-    echo '# Start Tomcat' >> /opt/camunda/start-camunda.camunda.sh && \
+    echo '# Start Tomcat' >> /opt/camunda/start-camunda.sh && \
     echo 'exec "$TOMCAT_DIR/bin/catalina.sh" run' >> /opt/camunda/start-camunda.sh
 
-# Düzeltilen Kısım: İzin ayarları doğrudan /opt/camunda yolu ile yapıldı.
+# Set proper permissions and make scripts executable
+# Burada da TOMCAT_DIR yerine doğrudan /opt/camunda kullanıldı veya TOMCAT_DIR değişkeni zaten doğru ayarlandığı için sorunsuz çalışır.
 RUN chmod -R 755 /opt/camunda /camunda && \
     chmod +x /opt/camunda/start-camunda.sh && \
+    # ${TOMCAT_DIR}/bin/*.sh kullanımı doğru olduğu için aşağıdaki satırı koruduk
     chmod +x /opt/camunda/bin/*.sh && \
     mkdir -p /opt/camunda/work/Catalina/localhost && \
     mkdir -p /opt/camunda/conf/Catalina/localhost && \
