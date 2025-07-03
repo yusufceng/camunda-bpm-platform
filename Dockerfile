@@ -20,40 +20,33 @@ RUN apt-get update && apt-get install -y \
 RUN groupadd -r camunda && useradd -r -g camunda camunda
 RUN mkdir -p /camunda /opt/camunda
 
-# Download and extract Tomcat directly
-RUN wget -O /tmp/apache-tomcat-9.0.85.tar.gz \
-    "https://archive.apache.org/dist/tomcat/tomcat-9/v9.0.85/bin/apache-tomcat-9.0.85.tar.gz" \
-    && tar -xzf /tmp/apache-tomcat-9.0.85.tar.gz -C /opt/camunda --strip-components=1 \
-    && rm /tmp/apache-tomcat-9.0.85.tar.gz \
-    && ln -s /opt/camunda /camunda \
-    && echo "=== Tomcat Directory Structure Debug ===" \
-    && find /opt/camunda -maxdepth 3 -type d | head -20
+# Extract Camunda Tomcat Assembly (contains Tomcat + all dependencies)
+COPY distro/tomcat/assembly/target/camunda-tomcat-assembly-*.tar.gz /tmp/camunda-tomcat.tar.gz
+RUN tar -xzf /tmp/camunda-tomcat.tar.gz -C /opt/camunda --strip-components=1 \
+    && rm /tmp/camunda-tomcat.tar.gz \
+    && ln -s /opt/camunda /camunda
 
-# Set up Tomcat environment
-RUN echo "TOMCAT_DIR=/opt/camunda" \
-    && ln -sf /opt/camunda/conf /opt/camunda/conf \
-    && ln -sf /opt/camunda/bin /opt/camunda/bin \
-    && ln -sf /opt/camunda/lib /opt/camunda/lib \
-    && ln -sf /opt/camunda/webapps /opt/camunda/webapps \
-    && ln -sf /opt/camunda/logs /opt/camunda/logs \
-    && echo "=== Tomcat Directory Setup Complete ===" \
-    && ls -la /opt/camunda/
+# Find Tomcat directory and set up environment
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d) \
+    && echo "TOMCAT_DIR=${TOMCAT_DIR}" \
+    && ln -sf ${TOMCAT_DIR}/conf /opt/camunda/conf \
+    && ln -sf ${TOMCAT_DIR}/bin /opt/camunda/bin \
+    && ln -sf ${TOMCAT_DIR}/lib /opt/camunda/lib \
+    && ln -sf ${TOMCAT_DIR}/webapps /opt/camunda/webapps \
+    && ln -sf ${TOMCAT_DIR}/logs /opt/camunda/logs
 
 # Download PostgreSQL driver to correct location
-RUN echo "Downloading PostgreSQL driver to: /opt/camunda/lib/" \
-    && wget -O /opt/camunda/lib/postgresql-42.7.3.jar \
-    "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar" \
-    && echo "=== PostgreSQL Driver Downloaded ===" \
-    && ls -la /opt/camunda/lib/postgresql-42.7.3.jar
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d) \
+    && wget -O ${TOMCAT_DIR}/lib/postgresql-42.7.3.jar \
+    "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar"
 
-# Copy Classic Java EE WAR files to webapps directory  
+# Copy WAR files to webapps directory  
 COPY distro/tomcat/webapp/target/camunda-webapp*.war /tmp/
 COPY engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
-RUN cp /tmp/camunda-webapp*.war /opt/camunda/webapps/camunda.war \
-    && cp /tmp/camunda-engine-rest-*-tomcat.war /opt/camunda/webapps/engine-rest.war \
-    && rm /tmp/camunda-webapp*.war /tmp/camunda-engine-rest-*-tomcat.war \
-    && echo "=== Classic Java EE WAR Files Deployed ===" \
-    && ls -la /opt/camunda/webapps/*.war
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d) \
+    && cp /tmp/camunda-webapp*.war ${TOMCAT_DIR}/webapps/camunda.war \
+    && cp /tmp/camunda-engine-rest-*-tomcat.war ${TOMCAT_DIR}/webapps/engine-rest.war \
+    && rm /tmp/camunda-webapp*.war /tmp/camunda-engine-rest-*-tomcat.war
 
 # Environment variables for production
 ENV CATALINA_HOME=/opt/camunda
@@ -61,9 +54,9 @@ ENV CATALINA_BASE=/opt/camunda
 ENV JAVA_OPTS="-Djava.security.egd=file:/dev/./urandom -Djava.awt.headless=true"
 ENV CATALINA_OPTS="-Xms1g -Xmx2g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication"
 
-# Database configuration (will be overridden by envsubst)
+# Database configuration
 ENV DB_DRIVER=org.postgresql.Driver
-ENV DB_URL=jdbc:postgresql://localhost:5432/camunda
+ENV DB_URL=jdbc:postgresql://camunda-postgres-postgresql.database.svc.cluster.local:5432/camunda
 ENV DB_USERNAME=camunda
 ENV DB_PASSWORD=camunda
 ENV DB_VALIDATE_ON_MIGRATE=true
@@ -83,28 +76,33 @@ COPY distro/tomcat/assembly/src/conf/server.xml /tmp/server.xml.template
 RUN echo '#!/bin/bash' > /opt/camunda/start-camunda.sh && \
     echo 'set -e' >> /opt/camunda/start-camunda.sh && \
     echo '' >> /opt/camunda/start-camunda.sh && \
+    echo '# Find Tomcat directory' >> /opt/camunda/start-camunda.sh && \
+    echo 'TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d)' >> /opt/camunda/start-camunda.sh && \
+    echo 'echo "Using Tomcat directory: $TOMCAT_DIR"' >> /opt/camunda/start-camunda.sh && \
+    echo '' >> /opt/camunda/start-camunda.sh && \
     echo '# Process configuration templates with envsubst' >> /opt/camunda/start-camunda.sh && \
-    echo 'envsubst < /tmp/bpm-platform.xml.template > /opt/camunda/conf/bpm-platform.xml' >> /opt/camunda/start-camunda.sh && \
-    echo 'envsubst < /tmp/server.xml.template > /opt/camunda/conf/server.xml' >> /opt/camunda/start-camunda.sh && \
+    echo 'envsubst < /tmp/bpm-platform.xml.template > $TOMCAT_DIR/conf/bpm-platform.xml' >> /opt/camunda/start-camunda.sh && \
+    echo 'envsubst < /tmp/server.xml.template > $TOMCAT_DIR/conf/server.xml' >> /opt/camunda/start-camunda.sh && \
     echo '' >> /opt/camunda/start-camunda.sh && \
     echo '# Start Tomcat' >> /opt/camunda/start-camunda.sh && \
-    echo 'exec /opt/camunda/bin/catalina.sh run' >> /opt/camunda/start-camunda.sh
+    echo 'exec $TOMCAT_DIR/bin/catalina.sh run' >> /opt/camunda/start-camunda.sh
 
 # Set proper permissions and make scripts executable
 RUN chmod -R 755 /opt/camunda /camunda && \
     chmod +x /opt/camunda/start-camunda.sh && \
-    chmod +x /opt/camunda/bin/*.sh && \
-    mkdir -p /opt/camunda/work/Catalina/localhost && \
-    mkdir -p /opt/camunda/conf/Catalina/localhost && \
-    chmod 777 /opt/camunda/conf && \
-    chmod 777 /opt/camunda/conf/Catalina && \
-    chmod 777 /opt/camunda/conf/Catalina/localhost && \
-    chmod 777 /opt/camunda/webapps && \
-    chmod 777 /opt/camunda/work && \
-    chmod 777 /opt/camunda/work/Catalina && \
-    chmod 777 /opt/camunda/work/Catalina/localhost && \
-    chmod 777 /opt/camunda/logs && \
-    chmod 777 /opt/camunda/temp && \
+    TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d) && \
+    chmod +x ${TOMCAT_DIR}/bin/*.sh && \
+    mkdir -p ${TOMCAT_DIR}/work/Catalina/localhost && \
+    mkdir -p ${TOMCAT_DIR}/conf/Catalina/localhost && \
+    chmod 777 ${TOMCAT_DIR}/conf && \
+    chmod 777 ${TOMCAT_DIR}/conf/Catalina && \
+    chmod 777 ${TOMCAT_DIR}/conf/Catalina/localhost && \
+    chmod 777 ${TOMCAT_DIR}/webapps && \
+    chmod 777 ${TOMCAT_DIR}/work && \
+    chmod 777 ${TOMCAT_DIR}/work/Catalina && \
+    chmod 777 ${TOMCAT_DIR}/work/Catalina/localhost && \
+    chmod 777 ${TOMCAT_DIR}/logs && \
+    chmod 777 ${TOMCAT_DIR}/temp && \
     chown -R camunda:camunda /camunda /opt/camunda
 
 # Health check for Kubernetes
