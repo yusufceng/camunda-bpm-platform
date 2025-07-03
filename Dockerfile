@@ -1,26 +1,5 @@
 # Camunda BPM Platform 7.23.0 - Production Ready Docker Image
-# Multi-stage build: Build + Runtime
-FROM maven:3.9-eclipse-temurin-17 AS builder
-
-# Set working directory
-WORKDIR /app
-
-# Copy source code
-COPY . .
-
-# Build Camunda with our own JARs and assembly
-RUN mvn clean package \
-    -pl commons/logging,commons/utils,commons/typed-values,engine-dmn/feel-api,engine-dmn/feel-juel,engine-dmn/feel-scala,engine-dmn/engine,engine,engine-rest/engine-rest,engine-rest/assembly,engine-spring,webapps,distro/tomcat/webapp,distro/tomcat/assembly \
-    -am \
-    -T 2C \
-    -DskipTests \
-    -Dcheckstyle.skip=true \
-    -Dpmd.skip=true \
-    -Dspotbugs.skip=true \
-    -Dmaven.javadoc.skip=true \
-    -Dmaven.source.skip=true
-
-# Runtime stage
+# Single stage - Build artifacts from Tekton pipeline
 FROM eclipse-temurin:17-jre
 
 # Metadata
@@ -41,8 +20,8 @@ RUN apt-get update && apt-get install -y \
 RUN groupadd -r camunda && useradd -r -g camunda camunda
 RUN mkdir -p /camunda /opt/camunda
 
-# Copy and extract Camunda Tomcat Assembly from builder stage
-COPY --from=builder /app/distro/tomcat/assembly/target/camunda-tomcat-assembly-*.tar.gz /tmp/camunda-tomcat.tar.gz
+# Copy and extract Camunda Tomcat Assembly (pre-built in Tekton)
+COPY distro/tomcat/assembly/target/camunda-tomcat-assembly-*.tar.gz /tmp/camunda-tomcat.tar.gz
 RUN tar -xzf /tmp/camunda-tomcat.tar.gz -C /opt/camunda --strip-components=1 \
     && rm /tmp/camunda-tomcat.tar.gz \
     && ln -s /opt/camunda /camunda
@@ -61,9 +40,9 @@ RUN TOMCAT_DIR=$(find /opt/camunda/server -name "apache-tomcat-*" -type d | head
     && wget -O ${TOMCAT_DIR}/lib/postgresql-42.7.3.jar \
     "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar"
 
-# Copy WAR files from builder stage to webapps directory  
-COPY --from=builder /app/distro/tomcat/webapp/target/camunda-webapp*.war /tmp/
-COPY --from=builder /app/engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
+# Copy WAR files (pre-built in Tekton) to webapps directory  
+COPY distro/tomcat/webapp/target/camunda-webapp*.war /tmp/
+COPY engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
 RUN TOMCAT_DIR=$(find /opt/camunda/server -name "apache-tomcat-*" -type d | head -1) \
     && cp /tmp/camunda-webapp*.war ${TOMCAT_DIR}/webapps/camunda.war \
     && cp /tmp/camunda-engine-rest-*-tomcat.war ${TOMCAT_DIR}/webapps/engine-rest.war \
@@ -89,9 +68,9 @@ ENV CAMUNDA_BPM_RUN_CORS_ENABLED=false
 ENV CAMUNDA_BPM_AUTHORIZATION_ENABLED=true
 ENV CAMUNDA_BPM_DATABASE_SCHEMA_UPDATE=true
 
-# Copy configuration templates from builder stage
-COPY --from=builder /app/distro/tomcat/assembly/src/conf/bpm-platform.xml /tmp/bpm-platform.xml.template
-COPY --from=builder /app/distro/tomcat/assembly/src/conf/server.xml /tmp/server.xml.template
+# Copy configuration templates
+COPY distro/tomcat/assembly/src/conf/bpm-platform.xml /tmp/bpm-platform.xml.template
+COPY distro/tomcat/assembly/src/conf/server.xml /tmp/server.xml.template
 
 # Create startup script with envsubst
 RUN echo '#!/bin/bash' > /opt/camunda/start-camunda.sh && \
