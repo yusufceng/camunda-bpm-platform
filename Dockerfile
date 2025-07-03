@@ -26,13 +26,14 @@ RUN tar -xzf /tmp/camunda-tomcat.tar.gz -C /opt/camunda --strip-components=1 \
     && rm /tmp/camunda-tomcat.tar.gz \
     && ln -s /opt/camunda /camunda
 
-# Düzeltilen Kısım: TOMCAT_DIR tanımlandı, ancak gereksiz sembolik linkler kaldırıldı.
-# Tomcat'in alt dizinleri (conf, bin, lib, webapps, logs) zaten /opt/camunda altında gerçek dizinlerdir.
+# TOMCAT_DIR tanımlandı
 RUN TOMCAT_DIR="/opt/camunda" \
     && echo "TOMCAT_DIR=${TOMCAT_DIR}"
 
 # Download PostgreSQL driver to correct location
+# BURAYA DÜZELTME EKLENDİ: postgresql.jar'ı indirmeden önce 'lib' dizininin varlığını garantilemek için mkdir -p kullanıldı.
 RUN TOMCAT_DIR="/opt/camunda" \
+    && mkdir -p ${TOMCAT_DIR}/lib \
     && wget -O ${TOMCAT_DIR}/lib/postgresql-42.7.3.jar \
     "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar"
 
@@ -84,10 +85,8 @@ RUN echo '#!/bin/bash' > /opt/camunda/start-camunda.sh && \
     echo 'exec "$TOMCAT_DIR/bin/catalina.sh" run' >> /opt/camunda/start-camunda.sh
 
 # Set proper permissions and make scripts executable
-# Burada da TOMCAT_DIR yerine doğrudan /opt/camunda kullanıldı veya TOMCAT_DIR değişkeni zaten doğru ayarlandığı için sorunsuz çalışır.
 RUN chmod -R 755 /opt/camunda /camunda && \
     chmod +x /opt/camunda/start-camunda.sh && \
-    # ${TOMCAT_DIR}/bin/*.sh kullanımı doğru olduğu için aşağıdaki satırı koruduk
     chmod +x /opt/camunda/bin/*.sh && \
     mkdir -p /opt/camunda/work/Catalina/localhost && \
     mkdir -p /opt/camunda/conf/Catalina/localhost && \
