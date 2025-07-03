@@ -3,7 +3,10 @@
   xsi:schemaLocation="http://www.camunda.org/schema/1.0/BpmPlatform http://www.camunda.org/schema/1.0/BpmPlatform ">
 
   <job-executor>
-    <job-acquisition name="default" />
+    <job-acquisition name="default">
+      <max-jobs-per-acquisition>3</max-jobs-per-acquisition>
+      <wait-time-in-millis>5000</wait-time-in-millis>
+    </job-acquisition>
   </job-executor>
 
   <process-engine name="default">
@@ -18,14 +21,10 @@
       <property name="historyCleanupBatchWindowStartTime">00:01</property>
 
       <!-- Database Configuration -->
-      <property name="jdbcDriver">${DB_DRIVER:-org.postgresql.Driver}</property>
-      <property name="jdbcUrl">${DB_URL:-jdbc:postgresql://camunda-postgres-postgresql.database.svc.cluster.local:5432/camunda}</property>
-      <property name="jdbcUsername">${DB_USERNAME:-camunda}</property>
-      <property name="jdbcPassword">${DB_PASSWORD:-camunda}</property>
-      
-      <!-- Connection Pool Settings -->
-      <property name="jdbcMaxActiveConnections">${DB_CONN_MAXACTIVE:-20}</property>
-      <property name="jdbcMinIdle">${DB_CONN_MINIDLE:-5}</property>
+      <property name="jdbcDriver">${DB_DRIVER}</property>
+      <property name="jdbcUrl">${DB_URL}</property>
+      <property name="jdbcUsername">${DB_USERNAME}</property>
+      <property name="jdbcPassword">${DB_PASSWORD}</property>
     </properties>
 
     <plugins>
