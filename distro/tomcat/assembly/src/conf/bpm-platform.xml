@@ -1,107 +1,163 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<bpm-platform xmlns="http://www.camunda.org/schema/1.0/BpmPlatform" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-  xsi:schemaLocation="http://www.camunda.org/schema/1.0/BpmPlatform http://www.camunda.org/schema/1.0/BpmPlatform ">
+FROM eclipse-temurin:17-jre
 
-  <job-executor>
-    <job-acquisition name="default" />
-  </job-executor>
+LABEL maintainer="Cadenza Flow-Yusuf Coşkun"
+LABEL version="7.23.0"
+LABEL description="Camunda BPM Platform 7.23.0 - Production Ready Build for EKS"
 
-  <process-engine name="default">
-    <job-acquisition>default</job-acquisition>
-    <configuration>org.camunda.bpm.engine.impl.cfg.StandaloneProcessEngineConfiguration</configuration>
-    <datasource>java:jdbc/ProcessEngine</datasource>
+# Install necessary packages
+RUN apt-get update && apt-get install -y \
+    wget \
+    curl \
+    unzip \
+    xmlstarlet \
+    gettext-base \
+    file \
+    && rm -rf /var/lib/apt/lists/*
 
-    <properties>
-      <property name="history">full</property>
-      <property name="databaseSchemaUpdate">${CAMUNDA_BPM_DATABASE_SCHEMA_UPDATE:-true}</property>
-      <property name="authorizationEnabled">${CAMUNDA_BPM_AUTHORIZATION_ENABLED:-true}</property>
-      <property name="jobExecutorDeploymentAware">true</property>
-      <property name="historyCleanupBatchWindowStartTime">00:01</property>
-      
-      <!-- Database Configuration -->
-      <property name="jdbcDriver">${DB_DRIVER:-org.postgresql.Driver}</property>
-      <property name="jdbcUrl">${DB_URL:-jdbc:postgresql://localhost:5432/camunda}</property>
-      <property name="jdbcUsername">${DB_USERNAME:-camunda}</property>
-      <property name="jdbcPassword">${DB_PASSWORD:-camunda}</property>
-      <property name="jdbcMaxActiveConnections">${DB_CONN_MAXACTIVE:-20}</property>
-      <property name="jdbcMinIdleConnections">${DB_CONN_MINIDLE:-5}</property>
-      <property name="jdbcMaxCheckoutTime">300000</property>
-      <property name="jdbcBorrowConnectionTimeout">30000</property>
-      <property name="jdbcReapTime">30000</property>
-      <property name="jdbcMaxIdleTime">60000</property>
-      <property name="jdbcMaxIdleTimeExcessConnections">50</property>
-      <property name="jdbcCheckoutTimeout">20000</property>
-      <property name="jdbcValidateOnCheckout">false</property>
-      <property name="jdbcValidateOnCheckin">false</property>
-      <property name="jdbcValidateOnMigrate">${DB_VALIDATE_ON_MIGRATE:-true}</property>
-    </properties>
+# Create Camunda user and group
+RUN groupadd -r camunda && useradd -r -g camunda camunda
 
-    <plugins>
-      <!-- plugin enabling Process Application event listener support -->
-      <plugin>
-        <class>org.camunda.bpm.application.impl.event.ProcessApplicationEventListenerPlugin</class>
-      </plugin>
+# Create directories
+RUN mkdir -p /camunda /opt/camunda
 
-      <!-- plugin enabling integration of camunda Spin -->
-      <plugin>
-        <class>org.camunda.spin.plugin.impl.SpinProcessEnginePlugin</class>
-      </plugin>
+# Copy and extract Camunda Tomcat distribution
+COPY distro/tomcat/assembly/target/camunda-tomcat-*.tar.gz /tmp/camunda-tomcat.tar.gz
 
-      <!-- plugin enabling connect support -->
-      <plugin>
-        <class>org.camunda.connect.plugin.impl.ConnectProcessEnginePlugin</class>
-      </plugin>
+# Debug: Check assembly file content
+RUN ls -la /tmp/camunda-tomcat.tar.gz && \
+    file /tmp/camunda-tomcat.tar.gz && \
+    echo "=== Assembly file content ===" && \
+    tar -tzf /tmp/camunda-tomcat.tar.gz | head -20
 
-    <!-- LDAP CONFIGURATION -->
-    <!-- Uncomment this section in order to enable LDAP support for this process engine -->
-    <!-- Adjust configuration, see ( http://docs.camunda.org/latest/guides/user-guide/#process-engine-identity-service-the-ldap-identity-service ) -->
-    <!--
-      <plugin>
-        <class>org.camunda.bpm.identity.impl.ldap.plugin.LdapIdentityProviderPlugin</class>
-        <properties>
+# Extract assembly
+RUN tar -xzf /tmp/camunda-tomcat.tar.gz -C /opt/camunda --strip-components=1 \
+    && rm /tmp/camunda-tomcat.tar.gz \
+    && ln -s /opt/camunda /camunda
 
-          <property name="serverUrl">ldaps://localhost:4334/</property>
-          <property name="acceptUntrustedCertificates">false</property>
-          <property name="managerDn">uid=jonny,ou=office-berlin,o=camunda,c=org</property>
-          <property name="managerPassword">s3cr3t</property>
+# Debug: Check extracted content
+RUN echo "=== /opt/camunda content ===" && \
+    ls -la /opt/camunda && \
+    echo "=== /opt/camunda/bin content ===" && \
+    ls -la /opt/camunda/bin 2>/dev/null || echo "bin directory not found" && \
+    echo "=== /opt/camunda/conf content ===" && \
+    ls -la /opt/camunda/conf 2>/dev/null || echo "conf directory not found"
 
-          <property name="baseDn">o=camunda,c=org</property>
+# Find Tomcat directory and create symlinks
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
+    && echo "TOMCAT_DIR=${TOMCAT_DIR}" \
+    && if [ -n "$TOMCAT_DIR" ]; then \
+        ln -sf ${TOMCAT_DIR}/conf /opt/camunda/conf; \
+        ln -sf ${TOMCAT_DIR}/bin /opt/camunda/bin; \
+        ln -sf ${TOMCAT_DIR}/lib /opt/camunda/lib; \
+        ln -sf ${TOMCAT_DIR}/webapps /opt/camunda/webapps; \
+        ln -sf ${TOMCAT_DIR}/logs /opt/camunda/logs; \
+    else \
+        echo "Tomcat directory not found, checking assembly structure"; \
+        find /opt/camunda -type d | head -10; \
+    fi
 
-          <property name="userSearchBase"></property>
-          <property name="userSearchFilter">(objectclass=person)</property>
+# Download PostgreSQL driver
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
+    && if [ -n "$TOMCAT_DIR" ]; then \
+        wget -O ${TOMCAT_DIR}/lib/postgresql-42.7.3.jar \
+        "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar"; \
+    else \
+        echo "Tomcat directory not found, skipping PostgreSQL driver"; \
+    fi
 
-          <property name="userIdAttribute">uid</property>
-          <property name="userFirstnameAttribute">cn</property>
-          <property name="userLastnameAttribute">sn</property>
-          <property name="userEmailAttribute">mail</property>
-          <property name="userPasswordAttribute">userpassword</property>
+# Set environment variables for Tomcat and Java
+ENV CATALINA_HOME=/opt/camunda
+ENV CATALINA_BASE=/opt/camunda
+ENV JAVA_OPTS="-Djava.security.egd=file:/dev/./urandom -Djava.awt.headless=true"
+ENV CATALINA_OPTS="-Xms1g -Xmx2g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication"
 
-          <property name="groupSearchBase"></property>
-          <property name="groupSearchFilter">(objectclass=groupOfNames)</property>
-          <property name="groupIdAttribute">cn</property>
-          <property name="groupNameAttribute">cn</property>
+# Set environment variables for Database connection
+ENV DB_DRIVER=org.postgresql.Driver
+ENV DB_URL=jdbc:postgresql://camunda-postgres-postgresql.database.svc.cluster.local:5432/camunda
+ENV DB_USERNAME=camunda
+ENV DB_PASSWORD=camunda
+ENV DB_VALIDATE_ON_MIGRATE=true
+ENV DB_CONN_MAXACTIVE=20
+ENV DB_CONN_MINIDLE=5
 
-          <property name="groupMemberAttribute">member</property>
-          <property name="sortControlSupported">false</property>
+# Set environment variables for Camunda Webapp configuration
+ENV CAMUNDA_BPM_RUN_CORS_ENABLED=false
+ENV CAMUNDA_BPM_AUTHORIZATION_ENABLED=true
+ENV CAMUNDA_BPM_DATABASE_SCHEMA_UPDATE=true
 
-        </properties>
-      </plugin>
-      -->
+# Copy application WAR files
+COPY distro/tomcat/webapp/target/camunda-webapp*.war /tmp/
+COPY engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
 
-      <!-- LDAP CONFIGURATION -->
-      <!-- The following plugin allows you to grant administrator authorizations to an existing LDAP user -->
-      <!--
-      <plugin>
-        <class>org.camunda.bpm.engine.impl.plugin.AdministratorAuthorizationPlugin</class>
-        <properties>
-          <property name="administratorUserName">admin</property>
-        </properties>
-      </plugin>
-      -->
+# Deploy WAR files
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
+    && if [ -n "$TOMCAT_DIR" ]; then \
+        mkdir -p ${TOMCAT_DIR}/webapps; \
+        cp /tmp/camunda-webapp*.war ${TOMCAT_DIR}/webapps/camunda.war; \
+        cp /tmp/camunda-engine-rest-*-tomcat.war ${TOMCAT_DIR}/webapps/engine-rest.war; \
+        rm /tmp/camunda-webapp*.war /tmp/camunda-engine-rest-*-tomcat.war; \
+    else \
+        echo "Tomcat directory not found, cannot deploy WAR files"; \
+        exit 1; \
+    fi
 
-    </plugins>
+# Copy and process configuration templates
+COPY distro/tomcat/assembly/src/conf/bpm-platform.xml /tmp/bpm-platform.xml.template
+COPY distro/tomcat/assembly/src/conf/server.xml /tmp/server.xml.template
 
+# Create start script
+RUN echo '#!/bin/bash' > /opt/camunda/start-camunda.sh && \
+    echo 'set -e' >> /opt/camunda/start-camunda.sh && \
+    echo '' >> /opt/camunda/start-camunda.sh && \
+    echo '# Find Tomcat directory' >> /opt/camunda/start-camunda.sh && \
+    echo 'TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1)' >> /opt/camunda/start-camunda.sh && \
+    echo 'echo "Using Tomcat directory: $TOMCAT_DIR"' >> /opt/camunda/start-camunda.sh && \
+    echo '' >> /opt/camunda/start-camunda.sh && \
+    echo '# Process configuration templates with envsubst' >> /opt/camunda/start-camunda.sh && \
+    echo 'echo "DB_URL=$DB_URL"' >> /opt/camunda/start-camunda.sh && \
+    echo 'export DB_URL' >> /opt/camunda/start-camunda.sh && \
+    echo 'sed "s|\\${DB_URL:-[^}]*}|$DB_URL|g" /tmp/bpm-platform.xml.template > "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
+    echo 'sed "s|\\${DB_USERNAME:-[^}]*}|$DB_USERNAME|g" "$TOMCAT_DIR/conf/bpm-platform.xml" > "$TOMCAT_DIR/conf/bpm-platform.xml.tmp"' >> /opt/camunda/start-camunda.sh && \
+    echo 'mv "$TOMCAT_DIR/conf/bpm-platform.xml.tmp" "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
+    echo 'sed "s|\\${DB_PASSWORD:-[^}]*}|$DB_PASSWORD|g" "$TOMCAT_DIR/conf/bpm-platform.xml" > "$TOMCAT_DIR/conf/bpm-platform.xml.tmp"' >> /opt/camunda/start-camunda.sh && \
+    echo 'mv "$TOMCAT_DIR/conf/bpm-platform.xml.tmp" "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
+    echo 'envsubst < /tmp/server.xml.template > "$TOMCAT_DIR/conf/server.xml"' >> /opt/camunda/start-camunda.sh && \
+    echo '' >> /opt/camunda/start-camunda.sh && \
+    echo '# Debug: Show processed bpm-platform.xml content' >> /opt/camunda/start-camunda.sh && \
+    echo 'echo "=== Processed bpm-platform.xml jdbcUrl ==="' >> /opt/camunda/start-camunda.sh && \
+    echo 'grep jdbcUrl "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
+    echo '' >> /opt/camunda/start-camunda.sh && \
+    echo '# Start Tomcat' >> /opt/camunda/start-camunda.sh && \
+    echo 'exec "$TOMCAT_DIR/bin/catalina.sh" run' >> /opt/camunda/start-camunda.sh
 
-  </process-engine>
+# Set permissions and ownership
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
+    && if [ -n "$TOMCAT_DIR" ]; then \
+        chmod -R 755 /opt/camunda /camunda; \
+        chmod +x /opt/camunda/start-camunda.sh; \
+        chmod +x ${TOMCAT_DIR}/bin/*.sh; \
+        mkdir -p ${TOMCAT_DIR}/work/Catalina/localhost; \
+        mkdir -p ${TOMCAT_DIR}/conf/Catalina/localhost; \
+        chmod 777 ${TOMCAT_DIR}/conf; \
+        chmod 777 ${TOMCAT_DIR}/conf/Catalina; \
+        chmod 777 ${TOMCAT_DIR}/conf/Catalina/localhost; \
+        chmod 777 ${TOMCAT_DIR}/webapps; \
+        chmod 777 ${TOMCAT_DIR}/work; \
+        chmod 777 ${TOMCAT_DIR}/work/Catalina; \
+        chmod 777 ${TOMCAT_DIR}/work/Catalina/localhost; \
+        chmod 777 ${TOMCAT_DIR}/logs; \
+        chmod 777 ${TOMCAT_DIR}/temp; \
+        chown -R camunda:camunda /camunda /opt/camunda; \
+    else \
+        echo "Tomcat directory not found, cannot set permissions"; \
+        exit 1; \
+    fi
 
-</bpm-platform>
+# Set user
+USER camunda
+
+# Expose HTTP port
+EXPOSE 8080
+
+# Define entrypoint
+ENTRYPOINT ["/opt/camunda/start-camunda.sh"]
