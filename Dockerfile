@@ -39,7 +39,6 @@ RUN TOMCAT_DIR="/opt/camunda" \
 # Copy WAR files (pre-built in Tekton) to webapps directory
 COPY distro/tomcat/webapp/target/camunda-webapp*.war /tmp/
 COPY engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
-# BURAYA DÜZELTME EKLENDİ: .war dosyalarını kopyalamadan önce 'webapps' dizininin varlığını garantilemek için mkdir -p kullanıldı.
 RUN TOMCAT_DIR="/opt/camunda" \
     && mkdir -p ${TOMCAT_DIR}/webapps \
     && cp /tmp/camunda-webapp*.war ${TOMCAT_DIR}/webapps/camunda.war \
@@ -88,7 +87,7 @@ RUN echo '#!/bin/bash' > /opt/camunda/start-camunda.sh && \
 # Set proper permissions and make scripts executable
 RUN chmod -R 755 /opt/camunda /camunda && \
     chmod +x /opt/camunda/start-camunda.sh && \
-    chmod +x /opt/camunda/bin/*.sh && \
+    chmod +x /opt/camunda/bin/catalina.sh && \
     mkdir -p /opt/camunda/work/Catalina/localhost && \
     mkdir -p /opt/camunda/conf/Catalina/localhost && \
     chmod 777 /opt/camunda/conf && \
