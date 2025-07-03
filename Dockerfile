@@ -21,8 +21,9 @@ RUN groupadd -r camunda && useradd -r -g camunda camunda
 RUN mkdir -p /camunda /opt/camunda
 
 # Copy and extract Camunda Tomcat Assembly (pre-built in Tekton)
+# --strip-components=1 argümanı kaldırıldı
 COPY distro/tomcat/assembly/target/camunda-tomcat-*.tar.gz /tmp/camunda-tomcat.tar.gz
-RUN tar -xzf /tmp/camunda-tomcat.tar.gz -C /opt/camunda --strip-components=1 \
+RUN tar -xzf /tmp/camunda-tomcat.tar.gz -C /opt/camunda \
     && rm /tmp/camunda-tomcat.tar.gz \
     && ln -s /opt/camunda /camunda
 
