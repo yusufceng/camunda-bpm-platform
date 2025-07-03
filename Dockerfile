@@ -116,12 +116,17 @@ RUN echo '#!/bin/bash' > /opt/camunda/start-camunda.sh && \
     echo '# Process configuration templates with envsubst' >> /opt/camunda/start-camunda.sh && \
     echo 'echo "DB_URL=$DB_URL"' >> /opt/camunda/start-camunda.sh && \
     echo 'export DB_URL' >> /opt/camunda/start-camunda.sh && \
-    echo 'envsubst < /tmp/bpm-platform.xml.template > "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
+    echo 'cp /tmp/bpm-platform.xml.template "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
+    echo 'sed -i "s|\\${DB_URL:-[^}]*}|$DB_URL|g" "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
+    echo 'sed -i "s|\\${DB_USERNAME:-[^}]*}|$DB_USERNAME|g" "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
+    echo 'sed -i "s|\\${DB_PASSWORD:-[^}]*}|$DB_PASSWORD|g" "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
     echo 'envsubst < /tmp/server.xml.template > "$TOMCAT_DIR/conf/server.xml"' >> /opt/camunda/start-camunda.sh && \
     echo '' >> /opt/camunda/start-camunda.sh && \
     echo '# Debug: Show processed bpm-platform.xml content' >> /opt/camunda/start-camunda.sh && \
     echo 'echo "=== Processed bpm-platform.xml jdbcUrl ==="' >> /opt/camunda/start-camunda.sh && \
     echo 'grep jdbcUrl "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
+    echo 'echo "=== Full bpm-platform.xml content ==="' >> /opt/camunda/start-camunda.sh && \
+    echo 'cat "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
     echo '' >> /opt/camunda/start-camunda.sh && \
     echo '# Start Tomcat' >> /opt/camunda/start-camunda.sh && \
     echo 'exec "$TOMCAT_DIR/bin/catalina.sh" run' >> /opt/camunda/start-camunda.sh
