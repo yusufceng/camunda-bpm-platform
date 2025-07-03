@@ -21,9 +21,48 @@ RUN mkdir -p /camunda /opt/camunda
 
 # Copy and extract Camunda Tomcat distribution
 COPY distro/tomcat/assembly/target/camunda-tomcat-*.tar.gz /tmp/camunda-tomcat.tar.gz
+
+# Debug: Check assembly file content
+RUN ls -la /tmp/camunda-tomcat.tar.gz && \
+    file /tmp/camunda-tomcat.tar.gz && \
+    echo "=== Assembly file content ===" && \
+    tar -tzf /tmp/camunda-tomcat.tar.gz | head -20
+
+# Extract assembly
 RUN tar -xzf /tmp/camunda-tomcat.tar.gz -C /opt/camunda --strip-components=1 \
     && rm /tmp/camunda-tomcat.tar.gz \
     && ln -s /opt/camunda /camunda
+
+# Debug: Check extracted content
+RUN echo "=== /opt/camunda content ===" && \
+    ls -la /opt/camunda && \
+    echo "=== /opt/camunda/bin content ===" && \
+    ls -la /opt/camunda/bin 2>/dev/null || echo "bin directory not found" && \
+    echo "=== /opt/camunda/conf content ===" && \
+    ls -la /opt/camunda/conf 2>/dev/null || echo "conf directory not found"
+
+# Find Tomcat directory and create symlinks
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
+    && echo "TOMCAT_DIR=${TOMCAT_DIR}" \
+    && if [ -n "$TOMCAT_DIR" ]; then \
+        ln -sf ${TOMCAT_DIR}/conf /opt/camunda/conf; \
+        ln -sf ${TOMCAT_DIR}/bin /opt/camunda/bin; \
+        ln -sf ${TOMCAT_DIR}/lib /opt/camunda/lib; \
+        ln -sf ${TOMCAT_DIR}/webapps /opt/camunda/webapps; \
+        ln -sf ${TOMCAT_DIR}/logs /opt/camunda/logs; \
+    else \
+        echo "Tomcat directory not found, checking assembly structure"; \
+        find /opt/camunda -type d | head -10; \
+    fi
+
+# Download PostgreSQL driver
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
+    && if [ -n "$TOMCAT_DIR" ]; then \
+        wget -O ${TOMCAT_DIR}/lib/postgresql-42.7.3.jar \
+        "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar"; \
+    else \
+        echo "Tomcat directory not found, skipping PostgreSQL driver"; \
+    fi
 
 # Set environment variables for Tomcat and Java
 ENV CATALINA_HOME=/opt/camunda
@@ -48,11 +87,18 @@ ENV CAMUNDA_BPM_DATABASE_SCHEMA_UPDATE=true
 # Copy application WAR files
 COPY distro/tomcat/webapp/target/camunda-webapp*.war /tmp/
 COPY engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
-RUN ${TOMCAT_DIR:-/opt/camunda}/bin/shutdown.sh 60 -force || true
-RUN mkdir -p ${TOMCAT_DIR:-/opt/camunda}/webapps \
-    && cp /tmp/camunda-webapp*.war ${TOMCAT_DIR:-/opt/camunda}/webapps/camunda.war \
-    && cp /tmp/camunda-engine-rest-*-tomcat.war ${TOMCAT_DIR:-/opt/camunda}/webapps/engine-rest.war \
-    && rm /tmp/camunda-webapp*.war /tmp/camunda-engine-rest-*-tomcat.war
+
+# Deploy WAR files
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
+    && if [ -n "$TOMCAT_DIR" ]; then \
+        mkdir -p ${TOMCAT_DIR}/webapps; \
+        cp /tmp/camunda-webapp*.war ${TOMCAT_DIR}/webapps/camunda.war; \
+        cp /tmp/camunda-engine-rest-*-tomcat.war ${TOMCAT_DIR}/webapps/engine-rest.war; \
+        rm /tmp/camunda-webapp*.war /tmp/camunda-engine-rest-*-tomcat.war; \
+    else \
+        echo "Tomcat directory not found, cannot deploy WAR files"; \
+        exit 1; \
+    fi
 
 # Copy and process configuration templates
 COPY distro/tomcat/assembly/src/conf/bpm-platform.xml /tmp/bpm-platform.xml.template
@@ -62,8 +108,8 @@ COPY distro/tomcat/assembly/src/conf/server.xml /tmp/server.xml.template
 RUN echo '#!/bin/bash' > /opt/camunda/start-camunda.sh && \
     echo 'set -e' >> /opt/camunda/start-camunda.sh && \
     echo '' >> /opt/camunda/start-camunda.sh && \
-    echo '# Set Tomcat directory directly as /opt/camunda' >> /opt/camunda/start-camunda.sh && \
-    echo 'TOMCAT_DIR="/opt/camunda"' >> /opt/camunda/start-camunda.sh && \
+    echo '# Find Tomcat directory' >> /opt/camunda/start-camunda.sh && \
+    echo 'TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1)' >> /opt/camunda/start-camunda.sh && \
     echo 'echo "Using Tomcat directory: $TOMCAT_DIR"' >> /opt/camunda/start-camunda.sh && \
     echo '' >> /opt/camunda/start-camunda.sh && \
     echo '# Process configuration templates with envsubst' >> /opt/camunda/start-camunda.sh && \
@@ -74,21 +120,27 @@ RUN echo '#!/bin/bash' > /opt/camunda/start-camunda.sh && \
     echo 'exec "$TOMCAT_DIR/bin/catalina.sh" run' >> /opt/camunda/start-camunda.sh
 
 # Set permissions and ownership
-RUN chmod -R 755 /opt/camunda /camunda && \
-    chmod +x /opt/camunda/start-camunda.sh && \
-    chmod +x /opt/camunda/bin/catalina.sh && \
-    mkdir -p /opt/camunda/work/Catalina/localhost && \
-    mkdir -p /opt/camunda/conf/Catalina/localhost && \
-    chmod 777 /opt/camunda/conf && \
-    chmod 777 /opt/camunda/conf/Catalina && \
-    chmod 777 /opt/camunda/conf/Catalina/localhost && \
-    chmod 777 /opt/camunda/webapps && \
-    chmod 777 /opt/camunda/work && \
-    chmod 777 /opt/camunda/work/Catalina && \
-    chmod 777 /opt/camunda/work/Catalina/localhost && \
-    chmod 777 /opt/camunda/logs && \
-    chmod 777 /opt/camunda/temp && \
-    chown -R camunda:camunda /camunda /opt/camunda
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
+    && if [ -n "$TOMCAT_DIR" ]; then \
+        chmod -R 755 /opt/camunda /camunda; \
+        chmod +x /opt/camunda/start-camunda.sh; \
+        chmod +x ${TOMCAT_DIR}/bin/*.sh; \
+        mkdir -p ${TOMCAT_DIR}/work/Catalina/localhost; \
+        mkdir -p ${TOMCAT_DIR}/conf/Catalina/localhost; \
+        chmod 777 ${TOMCAT_DIR}/conf; \
+        chmod 777 ${TOMCAT_DIR}/conf/Catalina; \
+        chmod 777 ${TOMCAT_DIR}/conf/Catalina/localhost; \
+        chmod 777 ${TOMCAT_DIR}/webapps; \
+        chmod 777 ${TOMCAT_DIR}/work; \
+        chmod 777 ${TOMCAT_DIR}/work/Catalina; \
+        chmod 777 ${TOMCAT_DIR}/work/Catalina/localhost; \
+        chmod 777 ${TOMCAT_DIR}/logs; \
+        chmod 777 ${TOMCAT_DIR}/temp; \
+        chown -R camunda:camunda /camunda /opt/camunda; \
+    else \
+        echo "Tomcat directory not found, cannot set permissions"; \
+        exit 1; \
+    fi
 
 # Set user
 USER camunda
