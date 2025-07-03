@@ -13,10 +13,27 @@
 
     <properties>
       <property name="history">full</property>
-      <property name="databaseSchemaUpdate">true</property>
-      <property name="authorizationEnabled">true</property>
+      <property name="databaseSchemaUpdate">${CAMUNDA_BPM_DATABASE_SCHEMA_UPDATE:-true}</property>
+      <property name="authorizationEnabled">${CAMUNDA_BPM_AUTHORIZATION_ENABLED:-true}</property>
       <property name="jobExecutorDeploymentAware">true</property>
       <property name="historyCleanupBatchWindowStartTime">00:01</property>
+      
+      <!-- Database Configuration -->
+      <property name="jdbcDriver">${DB_DRIVER:-org.postgresql.Driver}</property>
+      <property name="jdbcUrl">${DB_URL:-jdbc:postgresql://localhost:5432/camunda}</property>
+      <property name="jdbcUsername">${DB_USERNAME:-camunda}</property>
+      <property name="jdbcPassword">${DB_PASSWORD:-camunda}</property>
+      <property name="jdbcMaxActiveConnections">${DB_CONN_MAXACTIVE:-20}</property>
+      <property name="jdbcMinIdleConnections">${DB_CONN_MINIDLE:-5}</property>
+      <property name="jdbcMaxCheckoutTime">300000</property>
+      <property name="jdbcBorrowConnectionTimeout">30000</property>
+      <property name="jdbcReapTime">30000</property>
+      <property name="jdbcMaxIdleTime">60000</property>
+      <property name="jdbcMaxIdleTimeExcessConnections">50</property>
+      <property name="jdbcCheckoutTimeout">20000</property>
+      <property name="jdbcValidateOnCheckout">false</property>
+      <property name="jdbcValidateOnCheckin">false</property>
+      <property name="jdbcValidateOnMigrate">${DB_VALIDATE_ON_MIGRATE:-true}</property>
     </properties>
 
     <plugins>
