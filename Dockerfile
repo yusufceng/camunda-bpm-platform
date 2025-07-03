@@ -71,12 +71,13 @@ ENV CATALINA_BASE=/opt/camunda
 ENV JAVA_OPTS="-Djava.security.egd=file:/dev/./urandom -Djava.awt.headless=true"
 ENV CATALINA_OPTS="-Xms1g -Xmx2g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication"
 
-# Set environment variables for Database connection
+# Set default environment variables for Database connection
 ENV DB_DRIVER=org.postgresql.Driver
 ENV DB_URL=jdbc:postgresql://camunda-postgres-postgresql.database.svc.cluster.local:5432/camunda
 ENV DB_USERNAME=camunda
 ENV DB_PASSWORD=camunda
-ENV DB_VALIDATE_ON_MIGRATE=true
+ENV DB_SCHEMA_UPDATE=true
+ENV AUTH_ENABLED=true
 ENV DB_CONN_MAXACTIVE=20
 ENV DB_CONN_MINIDLE=5
 
@@ -84,6 +85,11 @@ ENV DB_CONN_MINIDLE=5
 ENV CAMUNDA_BPM_RUN_CORS_ENABLED=false
 ENV CAMUNDA_BPM_AUTHORIZATION_ENABLED=true
 ENV CAMUNDA_BPM_DATABASE_SCHEMA_UPDATE=true
+
+# Copy configuration files and scripts
+COPY distro/tomcat/assembly/src/conf/bpm-platform.xml /tmp/bpm-platform.xml.template
+COPY distro/tomcat/assembly/src/conf/server.xml /tmp/server.xml.template
+COPY distro/tomcat/assembly/src/start-camunda.sh /opt/camunda/start-camunda.sh
 
 # Copy application WAR files
 COPY distro/tomcat/webapp/target/camunda-webapp*.war /tmp/
@@ -100,36 +106,6 @@ RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
         echo "Tomcat directory not found, cannot deploy WAR files"; \
         exit 1; \
     fi
-
-# Copy and process configuration templates
-COPY distro/tomcat/assembly/src/conf/bpm-platform.xml /tmp/bpm-platform.xml.template
-COPY distro/tomcat/assembly/src/conf/server.xml /tmp/server.xml.template
-
-# Create start script
-RUN echo '#!/bin/bash' > /opt/camunda/start-camunda.sh && \
-    echo 'set -e' >> /opt/camunda/start-camunda.sh && \
-    echo '' >> /opt/camunda/start-camunda.sh && \
-    echo '# Find Tomcat directory' >> /opt/camunda/start-camunda.sh && \
-    echo 'TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1)' >> /opt/camunda/start-camunda.sh && \
-    echo 'echo "Using Tomcat directory: $TOMCAT_DIR"' >> /opt/camunda/start-camunda.sh && \
-    echo '' >> /opt/camunda/start-camunda.sh && \
-    echo '# Process configuration templates with envsubst' >> /opt/camunda/start-camunda.sh && \
-    echo 'echo "DB_URL=$DB_URL"' >> /opt/camunda/start-camunda.sh && \
-    echo 'export DB_URL' >> /opt/camunda/start-camunda.sh && \
-    echo 'cp /tmp/bpm-platform.xml.template "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
-    echo 'sed -i "s|\\${DB_URL:-[^}]*}|$DB_URL|g" "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
-    echo 'sed -i "s|\\${DB_USERNAME:-[^}]*}|$DB_USERNAME|g" "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
-    echo 'sed -i "s|\\${DB_PASSWORD:-[^}]*}|$DB_PASSWORD|g" "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
-    echo 'envsubst < /tmp/server.xml.template > "$TOMCAT_DIR/conf/server.xml"' >> /opt/camunda/start-camunda.sh && \
-    echo '' >> /opt/camunda/start-camunda.sh && \
-    echo '# Debug: Show processed bpm-platform.xml content' >> /opt/camunda/start-camunda.sh && \
-    echo 'echo "=== Processed bpm-platform.xml jdbcUrl ==="' >> /opt/camunda/start-camunda.sh && \
-    echo 'grep jdbcUrl "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
-    echo 'echo "=== Full bpm-platform.xml content ==="' >> /opt/camunda/start-camunda.sh && \
-    echo 'cat "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
-    echo '' >> /opt/camunda/start-camunda.sh && \
-    echo '# Start Tomcat' >> /opt/camunda/start-camunda.sh && \
-    echo 'exec "$TOMCAT_DIR/bin/catalina.sh" run' >> /opt/camunda/start-camunda.sh
 
 # Set permissions and ownership
 RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \

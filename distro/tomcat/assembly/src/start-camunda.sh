@@ -1,30 +1,20 @@
-#!/bin/sh
+#!/bin/bash
 
-export CATALINA_HOME="$(dirname "$0")/server/apache-tomcat-${version.tomcat}"
+# Veritabanı bağlantı bilgilerini environment variable'lardan al
+export DB_DRIVER=${DB_DRIVER:-org.postgresql.Driver}
+export DB_URL=${DB_URL:-jdbc:postgresql://localhost:5432/camunda}
+export DB_USERNAME=${DB_USERNAME:-camunda}
+export DB_PASSWORD=${DB_PASSWORD:-camunda}
+export DB_SCHEMA_UPDATE=${DB_SCHEMA_UPDATE:-true}
+export AUTH_ENABLED=${AUTH_ENABLED:-true}
+export DB_CONN_MAXACTIVE=${DB_CONN_MAXACTIVE:-20}
+export DB_CONN_MINIDLE=${DB_CONN_MINIDLE:-5}
 
-UNAME=`which uname`
-if [ -n "$UNAME" -a "`$UNAME`" = "Darwin" ]
-then
-	BROWSERS="open"
-else
-	BROWSERS="xdg-open gnome-www-browser x-www-browser firefox chromium chromium-browser google-chrome"
-fi
+# Tomcat dizinini bul
+CATALINA_HOME="$(dirname "$0")/server/apache-tomcat-${version.tomcat}"
 
-echo "starting Camunda Platform on Tomcat Application Server";
+# bpm-platform.xml dosyasını güncelle
+envsubst < /tmp/bpm-platform.xml.template > "$CATALINA_HOME/conf/bpm-platform.xml"
 
-if [ -z "$BROWSER" ]; then
-  for executable in $BROWSERS; do
-    BROWSER=`which $executable 2> /dev/null`
-    if [ -n "$BROWSER" ]; then
-      break;
-    fi
-  done
-fi
-
-if [ -z "$BROWSER" ]; then
-  (sleep 15; echo -e "We are sorry... We tried all we could do but we couldn't locate your default browser... \nIf you want to see our default website please open your browser and insert this URL:\nhttp://localhost:8080/camunda-welcome/index.html";) &
-else
-  (sleep 5; $BROWSER "http://localhost:8080/camunda-welcome/index.html";) &
-fi
-
-/bin/sh "$(dirname "$0")/server/apache-tomcat-${version.tomcat}/bin/startup.sh"
+# Tomcat'i başlat
+exec "$CATALINA_HOME/bin/catalina.sh" run
