@@ -21,13 +21,14 @@ RUN groupadd -r camunda && useradd -r -g camunda camunda
 RUN mkdir -p /camunda /opt/camunda
 
 # Copy and extract Camunda Tomcat Assembly (pre-built in Tekton)
-COPY distro/tomcat/assembly/target/camunda-tomcat-assembly-*.tar.gz /tmp/camunda-tomcat.tar.gz
+COPY distro/tomcat/assembly/target/camunda-tomcat-*.tar.gz /tmp/camunda-tomcat.tar.gz
 RUN tar -xzf /tmp/camunda-tomcat.tar.gz -C /opt/camunda --strip-components=1 \
     && rm /tmp/camunda-tomcat.tar.gz \
     && ln -s /opt/camunda /camunda
 
-# Find Tomcat directory and set up environment (assembly uses server/ directory)
-RUN TOMCAT_DIR=$(find /opt/camunda/server -name "apache-tomcat-*" -type d | head -1) \
+# Düzeltilen Kısım: Tomcat ana dizini doğrudan /opt/camunda olarak belirlendi.
+# 'find' komutu kaldırıldı.
+RUN TOMCAT_DIR="/opt/camunda" \
     && echo "TOMCAT_DIR=${TOMCAT_DIR}" \
     && ln -sf ${TOMCAT_DIR}/conf /opt/camunda/conf \
     && ln -sf ${TOMCAT_DIR}/bin /opt/camunda/bin \
@@ -35,15 +36,16 @@ RUN TOMCAT_DIR=$(find /opt/camunda/server -name "apache-tomcat-*" -type d | head
     && ln -sf ${TOMCAT_DIR}/webapps /opt/camunda/webapps \
     && ln -sf ${TOMCAT_DIR}/logs /opt/camunda/logs
 
-# Download PostgreSQL driver to correct location
-RUN TOMCAT_DIR=$(find /opt/camunda/server -name "apache-tomcat-*" -type d | head -1) \
+# Düzeltilen Kısım: PostgreSQL sürücüsü için Tomcat dizini doğru olarak kullanıldı.
+RUN TOMCAT_DIR="/opt/camunda" \
     && wget -O ${TOMCAT_DIR}/lib/postgresql-42.7.3.jar \
     "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar"
 
-# Copy WAR files (pre-built in Tekton) to webapps directory  
+# Copy WAR files (pre-built in Tekton) to webapps directory
 COPY distro/tomcat/webapp/target/camunda-webapp*.war /tmp/
 COPY engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
-RUN TOMCAT_DIR=$(find /opt/camunda/server -name "apache-tomcat-*" -type d | head -1) \
+# Düzeltilen Kısım: WAR dosyaları doğru Tomcat webapps dizinine kopyalandı.
+RUN TOMCAT_DIR="/opt/camunda" \
     && cp /tmp/camunda-webapp*.war ${TOMCAT_DIR}/webapps/camunda.war \
     && cp /tmp/camunda-engine-rest-*-tomcat.war ${TOMCAT_DIR}/webapps/engine-rest.war \
     && rm /tmp/camunda-webapp*.war /tmp/camunda-engine-rest-*-tomcat.war
@@ -72,37 +74,36 @@ ENV CAMUNDA_BPM_DATABASE_SCHEMA_UPDATE=true
 COPY distro/tomcat/assembly/src/conf/bpm-platform.xml /tmp/bpm-platform.xml.template
 COPY distro/tomcat/assembly/src/conf/server.xml /tmp/server.xml.template
 
-# Create startup script with envsubst
+# Düzeltilen Kısım: Startup script içinde TOMCAT_DIR doğru olarak ayarlandı.
 RUN echo '#!/bin/bash' > /opt/camunda/start-camunda.sh && \
     echo 'set -e' >> /opt/camunda/start-camunda.sh && \
     echo '' >> /opt/camunda/start-camunda.sh && \
-    echo '# Find Tomcat directory' >> /opt/camunda/start-camunda.sh && \
-    echo 'TOMCAT_DIR=$(find /opt/camunda/server -name "apache-tomcat-*" -type d | head -1)' >> /opt/camunda/start-camunda.sh && \
+    echo '# Set Tomcat directory directly as /opt/camunda' >> /opt/camunda/start-camunda.sh && \
+    echo 'TOMCAT_DIR="/opt/camunda"' >> /opt/camunda/start-camunda.sh && \
     echo 'echo "Using Tomcat directory: $TOMCAT_DIR"' >> /opt/camunda/start-camunda.sh && \
     echo '' >> /opt/camunda/start-camunda.sh && \
     echo '# Process configuration templates with envsubst' >> /opt/camunda/start-camunda.sh && \
     echo 'envsubst < /tmp/bpm-platform.xml.template > "$TOMCAT_DIR/conf/bpm-platform.xml"' >> /opt/camunda/start-camunda.sh && \
     echo 'envsubst < /tmp/server.xml.template > "$TOMCAT_DIR/conf/server.xml"' >> /opt/camunda/start-camunda.sh && \
     echo '' >> /opt/camunda/start-camunda.sh && \
-    echo '# Start Tomcat' >> /opt/camunda/start-camunda.sh && \
+    echo '# Start Tomcat' >> /opt/camunda/start-camunda.camunda.sh && \
     echo 'exec "$TOMCAT_DIR/bin/catalina.sh" run' >> /opt/camunda/start-camunda.sh
 
-# Set proper permissions and make scripts executable
+# Düzeltilen Kısım: İzin ayarları doğrudan /opt/camunda yolu ile yapıldı.
 RUN chmod -R 755 /opt/camunda /camunda && \
     chmod +x /opt/camunda/start-camunda.sh && \
-    TOMCAT_DIR=$(find /opt/camunda/server -name "apache-tomcat-*" -type d | head -1) && \
-    chmod +x ${TOMCAT_DIR}/bin/*.sh && \
-    mkdir -p ${TOMCAT_DIR}/work/Catalina/localhost && \
-    mkdir -p ${TOMCAT_DIR}/conf/Catalina/localhost && \
-    chmod 777 ${TOMCAT_DIR}/conf && \
-    chmod 777 ${TOMCAT_DIR}/conf/Catalina && \
-    chmod 777 ${TOMCAT_DIR}/conf/Catalina/localhost && \
-    chmod 777 ${TOMCAT_DIR}/webapps && \
-    chmod 777 ${TOMCAT_DIR}/work && \
-    chmod 777 ${TOMCAT_DIR}/work/Catalina && \
-    chmod 777 ${TOMCAT_DIR}/work/Catalina/localhost && \
-    chmod 777 ${TOMCAT_DIR}/logs && \
-    chmod 777 ${TOMCAT_DIR}/temp && \
+    chmod +x /opt/camunda/bin/*.sh && \
+    mkdir -p /opt/camunda/work/Catalina/localhost && \
+    mkdir -p /opt/camunda/conf/Catalina/localhost && \
+    chmod 777 /opt/camunda/conf && \
+    chmod 777 /opt/camunda/conf/Catalina && \
+    chmod 777 /opt/camunda/conf/Catalina/localhost && \
+    chmod 777 /opt/camunda/webapps && \
+    chmod 777 /opt/camunda/work && \
+    chmod 777 /opt/camunda/work/Catalina && \
+    chmod 777 /opt/camunda/work/Catalina/localhost && \
+    chmod 777 /opt/camunda/logs && \
+    chmod 777 /opt/camunda/temp && \
     chown -R camunda:camunda /camunda /opt/camunda
 
 # Health check for Kubernetes
