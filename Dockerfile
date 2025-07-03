@@ -26,16 +26,33 @@ RUN tar -xzf /tmp/camunda-tomcat.tar.gz -C /opt/camunda --strip-components=1 \
     && rm /tmp/camunda-tomcat.tar.gz \
     && ln -s /opt/camunda /camunda \
     && echo "=== Assembly Directory Structure Debug ===" \
-    && find /opt/camunda -maxdepth 3 -type d | head -20
+    && find /opt/camunda -maxdepth 3 -type d | head -20 \
+    && echo "=== Creating Compatibility Symlinks ===" \
+    && TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d) \
+    && ln -sf ${TOMCAT_DIR}/conf /opt/camunda/conf \
+    && ln -sf ${TOMCAT_DIR}/bin /opt/camunda/bin \
+    && ln -sf ${TOMCAT_DIR}/lib /opt/camunda/lib \
+    && ln -sf ${TOMCAT_DIR}/webapps /opt/camunda/webapps \
+    && ln -sf ${TOMCAT_DIR}/logs /opt/camunda/logs
 
 # Download only PostgreSQL driver (not included in assembly)
 RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d) && \
     wget -O ${TOMCAT_DIR}/lib/postgresql-42.7.3.jar \
     "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar"
 
-# Environment variables for production
-ENV CATALINA_HOME=/opt/camunda/apache-tomcat-9.0.93
-ENV CATALINA_BASE=/opt/camunda/apache-tomcat-9.0.93
+# Copy Classic Java EE WAR files to webapps directory  
+COPY distro/tomcat/webapp/target/camunda-webapp*.war /tmp/
+COPY engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d) && \
+    cp /tmp/camunda-webapp*.war ${TOMCAT_DIR}/webapps/camunda.war && \
+    cp /tmp/camunda-engine-rest-*-tomcat.war ${TOMCAT_DIR}/webapps/engine-rest.war && \
+    rm /tmp/camunda-webapp*.war /tmp/camunda-engine-rest-*-tomcat.war && \
+    echo "=== Classic Java EE WAR Files Deployed ===" && \
+    ls -la ${TOMCAT_DIR}/webapps/*.war
+
+# Environment variables for production (updated to match assembly)
+ENV CATALINA_HOME=/opt/camunda/apache-tomcat-10.1.36
+ENV CATALINA_BASE=/opt/camunda/apache-tomcat-10.1.36
 ENV JAVA_OPTS="-Djava.security.egd=file:/dev/./urandom -Djava.awt.headless=true"
 ENV CATALINA_OPTS="-Xms1g -Xmx2g -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+UseStringDeduplication"
 
@@ -84,7 +101,7 @@ RUN chmod -R 755 /opt/camunda /camunda && \
 
 # Health check for Kubernetes
 HEALTHCHECK --interval=30s --timeout=15s --start-period=120s --retries=3 \
-  CMD curl -f http://localhost:8080/camunda/app/welcome/default/#!/welcome || exit 1
+  CMD curl -f http://localhost:8080/camunda/ || exit 1
 
 # Switch to camunda user
 USER camunda
@@ -95,3 +112,4 @@ EXPOSE 8080
 
 # Start Camunda
 CMD ["/opt/camunda/start-camunda.sh"] 
+ 
