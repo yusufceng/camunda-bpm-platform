@@ -3,10 +3,11 @@
   xsi:schemaLocation="http://www.camunda.org/schema/1.0/BpmPlatform http://www.camunda.org/schema/1.0/BpmPlatform ">
 
   <job-executor>
-    <job-acquisition name="default">
-      <max-jobs-per-acquisition>3</max-jobs-per-acquisition>
-      <wait-time-in-millis>5000</wait-time-in-millis>
-    </job-acquisition>
+    <job-acquisition name="default" />
+    <properties>
+      <property name="maxJobsPerAcquisition">3</property>
+      <property name="waitTimeInMillis">5000</property>
+    </properties>
   </job-executor>
 
   <process-engine name="default">
