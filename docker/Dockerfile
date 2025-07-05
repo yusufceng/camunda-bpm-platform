@@ -33,16 +33,15 @@ RUN curl -L -o /camunda/javaagent/jmx_prometheus_javaagent.jar \
     https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_PROMETHEUS_VERSION}/jmx_prometheus_javaagent-${JMX_PROMETHEUS_VERSION}.jar
 
 # Copy our pre-built artifacts
-COPY distro/tomcat/target/camunda-tomcat-assembly/camunda-*.jar /camunda/lib/
-COPY distro/tomcat/target/camunda-tomcat-assembly/webapps/* /camunda/webapps/
-COPY distro/tomcat/target/camunda-tomcat-assembly/conf/* /camunda/conf/
+COPY artifacts/*.jar /camunda/lib/
+COPY artifacts/*.war /camunda/webapps/
 
 # Copy configuration scripts
-COPY docker/camunda-lib.sh /camunda/docker/
-COPY docker/camunda-tomcat.sh /camunda/docker/
+COPY camunda-lib.sh /camunda/docker/
+COPY camunda-tomcat.sh /camunda/docker/
 
 # Copy Prometheus config
-COPY docker/prometheus-jmx.yml /camunda/javaagent/
+COPY prometheus-jmx.yml /camunda/javaagent/
 
 # Final stage
 FROM alpine:3.18
