@@ -1,6 +1,8 @@
 #!/bin/bash
 
 # Environment variable'ları export et (varsayılan değerler olmadan)
+# Bu 'export' komutları, zaten ENV ile ayarlanmış değişkenler için gerekli değildir,
+# ancak hata yaratmadıkları için bu haliyle bırakılabilir.
 export DB_DRIVER
 export DB_URL
 export DB_USERNAME
@@ -15,11 +17,17 @@ echo "--- Ortam Değişkenleri Hata Ayıklama İçin ---"
 echo "DB_URL: $DB_URL"
 echo "DB_USERNAME: $DB_USERNAME"
 echo "DB_PASSWORD: $DB_PASSWORD"
+echo "DB_DRIVER: $DB_DRIVER"
 echo "DB_SCHEMA_UPDATE: $DB_SCHEMA_UPDATE"
 echo "AUTH_ENABLED: $AUTH_ENABLED"
 echo "DB_CONN_MAXACTIVE: $DB_CONN_MAXACTIVE"
 echo "DB_CONN_MINIDLE: $DB_CONN_MINIDLE"
 echo "--- Ortam Değişkenleri Hata Ayıklama Sonu ---"
+echo ""
+
+echo "--- /tmp/bpm-platform.xml.template İçeriği ---"
+cat /tmp/bpm-platform.xml.template
+echo "--- /tmp/bpm-platform.xml.template İçeriği Sonu ---"
 echo ""
 # --- HATA AYIKLAMA SONU ---
 
