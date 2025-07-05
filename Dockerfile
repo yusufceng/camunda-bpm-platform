@@ -88,10 +88,12 @@ COPY distro/tomcat/assembly/src/start-camunda.sh /opt/camunda/start-camunda.sh
 COPY distro/tomcat/webapp/target/camunda-webapp.war /tmp/
 COPY engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
 
-# Deploy WAR files
+# Deploy WAR files and configuration
 RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
     && if [ -n "$TOMCAT_DIR" ]; then \
         mkdir -p ${TOMCAT_DIR}/webapps; \
+        cp /tmp/bpm-platform.xml.template ${TOMCAT_DIR}/conf/bpm-platform.xml; \
+        cp /tmp/server.xml.template ${TOMCAT_DIR}/conf/server.xml; \
         cp /tmp/camunda-webapp.war ${TOMCAT_DIR}/webapps/camunda.war; \
         cp /tmp/camunda-engine-rest-*-tomcat.war ${TOMCAT_DIR}/webapps/engine-rest.war; \
         rm /tmp/camunda-webapp.war /tmp/camunda-engine-rest-*-tomcat.war; \
