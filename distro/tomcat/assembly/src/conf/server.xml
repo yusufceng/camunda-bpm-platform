@@ -49,30 +49,6 @@
               factory="org.apache.catalina.users.MemoryUserDatabaseFactory"
               pathname="conf/tomcat-users.xml" />
 
-    <!-- Additional properties can be set to avoid a common exception
-         regarding connection timeout in the connection pool:
-          testOnBorrow="true"
-          validationQuery="SELECT 1"
-    -->
-    <Resource name="jdbc/ProcessEngine"
-              auth="Container"
-              type="javax.sql.DataSource" 
-              factory="org.apache.tomcat.jdbc.pool.DataSourceFactory"
-              uniqueResourceName="process-engine"
-              driverClassName="${DB_DRIVER:-org.postgresql.Driver}" 
-              url="${DB_URL:-jdbc:postgresql://localhost:5432/camunda}"
-              defaultTransactionIsolation="READ_COMMITTED"
-              username="${DB_USERNAME:-camunda}"  
-              password="${DB_PASSWORD:-camunda}"
-              maxActive="${DB_CONN_MAXACTIVE:-20}"
-              minIdle="${DB_CONN_MINIDLE:-5}"
-              maxIdle="20"
-              testOnBorrow="true"
-              validationQuery="SELECT 1"
-              validationInterval="30000"
-              timeBetweenEvictionRunsMillis="60000"
-              minEvictableIdleTimeMillis="300000" />
-
     <Resource name="global/camunda-bpm-platform/process-engine/ProcessEngineService!org.camunda.bpm.ProcessEngineService" auth="Container"
               type="org.camunda.bpm.ProcessEngineService"
               description="Camunda Platform Process Engine Service"
