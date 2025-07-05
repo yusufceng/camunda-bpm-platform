@@ -1,7 +1,6 @@
 FROM alpine:3.18 as builder
 
 ARG VERSION=7.23.0
-ARG DISTRO=tomcat
 ARG POSTGRESQL_VERSION=42.7.2
 ARG MYSQL_VERSION=8.0.33
 ARG JMX_PROMETHEUS_VERSION=0.19.0
@@ -18,11 +17,13 @@ RUN apk add --no-cache \
 # Create camunda directory structure
 RUN mkdir -p /camunda/lib /camunda/webapps /camunda/conf /camunda/docker /camunda/javaagent
 
-# Download and install Tomcat 9
-ENV TOMCAT_VERSION=9.0.85
-RUN curl -o /tmp/apache-tomcat.tar.gz https://archive.apache.org/dist/tomcat/tomcat-9/v${TOMCAT_VERSION}/bin/apache-tomcat-${TOMCAT_VERSION}.tar.gz && \
-    tar xf /tmp/apache-tomcat.tar.gz -C /camunda --strip-components=1 && \
-    rm -rf /tmp/apache-tomcat.tar.gz
+# Copy Tomcat assembly from Maven build
+COPY distro/tomcat/assembly/target/camunda-tomcat-*-assemble.tar.gz /tmp/
+RUN tar xf /tmp/camunda-tomcat-*-assemble.tar.gz -C /camunda --strip-components=2 && \
+    rm -rf /tmp/camunda-tomcat-*-assemble.tar.gz
+
+# Copy Camunda webapp
+COPY distro/tomcat/webapp/target/camunda-webapp.war /camunda/webapps/camunda.war
 
 # Download database drivers
 RUN curl -o /camunda/lib/postgresql.jar https://jdbc.postgresql.org/download/postgresql-${POSTGRESQL_VERSION}.jar && \
@@ -32,16 +33,10 @@ RUN curl -o /camunda/lib/postgresql.jar https://jdbc.postgresql.org/download/pos
 RUN curl -L -o /camunda/javaagent/jmx_prometheus_javaagent.jar \
     https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_PROMETHEUS_VERSION}/jmx_prometheus_javaagent-${JMX_PROMETHEUS_VERSION}.jar
 
-# Copy our pre-built artifacts
-COPY artifacts/*.jar /camunda/lib/
-COPY artifacts/*.war /camunda/webapps/
-
-# Copy configuration scripts
-COPY camunda-lib.sh /camunda/docker/
-COPY camunda-tomcat.sh /camunda/docker/
-
-# Copy Prometheus config
-COPY prometheus-jmx.yml /camunda/javaagent/
+# Copy configuration scripts and files
+COPY docker/camunda-lib.sh /camunda/docker/
+COPY docker/camunda-tomcat.sh /camunda/docker/
+COPY docker/prometheus-jmx.yml /camunda/javaagent/
 
 # Final stage
 FROM alpine:3.18

@@ -20,27 +20,25 @@ fi
 function configure_server() {
   # Configure HTTP port
   : ${HTTP_PORT:=8080}
-  xmlstarlet ed -L \
-    -u '/Server/Service/Connector[@protocol="HTTP/1.1"]/@port' -v "${HTTP_PORT}" \
-    /camunda/conf/server.xml
+  xmlstarlet_command /camunda/conf/server.xml \
+    '-u "/Server/Service/Connector[@protocol=\"HTTP/1.1\"]/@port" -v "'${HTTP_PORT}'"'
 
   # Configure database connection
-  xmlstarlet ed -L \
-    -d '/Server/GlobalNamingResources/Resource[@name="jdbc/ProcessEngine"]' \
-    -s '/Server/GlobalNamingResources' -t elem -n 'Resource' \
-    -i '/Server/GlobalNamingResources/Resource[not(@name)]' -t attr -n 'name' -v 'jdbc/ProcessEngine' \
-    -i '/Server/GlobalNamingResources/Resource[@name="jdbc/ProcessEngine"]' -t attr -n 'auth' -v 'Container' \
-    -i '/Server/GlobalNamingResources/Resource[@name="jdbc/ProcessEngine"]' -t attr -n 'type' -v 'javax.sql.DataSource' \
-    -i '/Server/GlobalNamingResources/Resource[@name="jdbc/ProcessEngine"]' -t attr -n 'driverClassName' -v "${DB_DRIVER}" \
-    -i '/Server/GlobalNamingResources/Resource[@name="jdbc/ProcessEngine"]' -t attr -n 'url' -v "${DB_URL}" \
-    -i '/Server/GlobalNamingResources/Resource[@name="jdbc/ProcessEngine"]' -t attr -n 'username' -v "${DB_USERNAME}" \
-    -i '/Server/GlobalNamingResources/Resource[@name="jdbc/ProcessEngine"]' -t attr -n 'password' -v "${DB_PASSWORD}" \
-    -i '/Server/GlobalNamingResources/Resource[@name="jdbc/ProcessEngine"]' -t attr -n 'maxActive' -v "${DB_CONN_MAXACTIVE}" \
-    -i '/Server/GlobalNamingResources/Resource[@name="jdbc/ProcessEngine"]' -t attr -n 'minIdle' -v "${DB_CONN_MINIDLE}" \
-    -i '/Server/GlobalNamingResources/Resource[@name="jdbc/ProcessEngine"]' -t attr -n 'maxIdle' -v "${DB_CONN_MAXIDLE}" \
-    -i '/Server/GlobalNamingResources/Resource[@name="jdbc/ProcessEngine"]' -t attr -n 'testOnBorrow' -v "${DB_VALIDATE_ON_BORROW}" \
-    -i '/Server/GlobalNamingResources/Resource[@name="jdbc/ProcessEngine"]' -t attr -n 'validationQuery' -v "${DB_VALIDATION_QUERY}" \
-    /camunda/conf/server.xml
+  xmlstarlet_command /camunda/conf/server.xml \
+    '-d "/Server/GlobalNamingResources/Resource[@name=\"jdbc/ProcessEngine\"]" \
+     -s "/Server/GlobalNamingResources" -t elem -n "Resource" \
+     -i "/Server/GlobalNamingResources/Resource[not(@name)]" -t attr -n "name" -v "jdbc/ProcessEngine" \
+     -i "/Server/GlobalNamingResources/Resource[@name=\"jdbc/ProcessEngine\"]" -t attr -n "auth" -v "Container" \
+     -i "/Server/GlobalNamingResources/Resource[@name=\"jdbc/ProcessEngine\"]" -t attr -n "type" -v "javax.sql.DataSource" \
+     -i "/Server/GlobalNamingResources/Resource[@name=\"jdbc/ProcessEngine\"]" -t attr -n "driverClassName" -v "'${DB_DRIVER}'" \
+     -i "/Server/GlobalNamingResources/Resource[@name=\"jdbc/ProcessEngine\"]" -t attr -n "url" -v "'${DB_URL}'" \
+     -i "/Server/GlobalNamingResources/Resource[@name=\"jdbc/ProcessEngine\"]" -t attr -n "username" -v "'${DB_USERNAME}'" \
+     -i "/Server/GlobalNamingResources/Resource[@name=\"jdbc/ProcessEngine\"]" -t attr -n "password" -v "'${DB_PASSWORD}'" \
+     -i "/Server/GlobalNamingResources/Resource[@name=\"jdbc/ProcessEngine\"]" -t attr -n "maxActive" -v "'${DB_CONN_MAXACTIVE}'" \
+     -i "/Server/GlobalNamingResources/Resource[@name=\"jdbc/ProcessEngine\"]" -t attr -n "minIdle" -v "'${DB_CONN_MINIDLE}'" \
+     -i "/Server/GlobalNamingResources/Resource[@name=\"jdbc/ProcessEngine\"]" -t attr -n "maxIdle" -v "'${DB_CONN_MAXIDLE}'" \
+     -i "/Server/GlobalNamingResources/Resource[@name=\"jdbc/ProcessEngine\"]" -t attr -n "testOnBorrow" -v "'${DB_VALIDATE_ON_BORROW}'" \
+     -i "/Server/GlobalNamingResources/Resource[@name=\"jdbc/ProcessEngine\"]" -t attr -n "validationQuery" -v "'${DB_VALIDATION_QUERY}'"'
 }
 
 # Configure bpm-platform.xml
@@ -48,10 +46,9 @@ function configure_bpm_platform() {
   : ${BPM_HISTORY_LEVEL:=full}
   : ${BPM_METRICS_FLAG:=true}
 
-  xmlstarlet ed -L \
-    -u '/c:bpm-platform/c:process-engine/c:properties/c:property[@name="history"]/@value' -v "${BPM_HISTORY_LEVEL}" \
-    -u '/c:bpm-platform/c:process-engine/c:properties/c:property[@name="metricsEnabled"]/@value' -v "${BPM_METRICS_FLAG}" \
-    /camunda/conf/bpm-platform.xml
+  xmlstarlet_command /camunda/conf/bpm-platform.xml \
+    '-u "/c:bpm-platform/c:process-engine/c:properties/c:property[@name=\"history\"]/@value" -v "'${BPM_HISTORY_LEVEL}'" \
+     -u "/c:bpm-platform/c:process-engine/c:properties/c:property[@name=\"metricsEnabled\"]/@value" -v "'${BPM_METRICS_FLAG}'"'
 }
 
 # Configure JMX Prometheus
