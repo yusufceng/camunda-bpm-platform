@@ -85,16 +85,16 @@ COPY distro/tomcat/assembly/src/conf/server.xml /tmp/server.xml.template
 COPY distro/tomcat/assembly/src/start-camunda.sh /opt/camunda/start-camunda.sh
 
 # Copy application WAR files (using non-Jakarta WAR files for Tomcat 9)
-COPY webapps/assembly/target/camunda-webapp-*.war /tmp/
+COPY distro/tomcat/webapp/target/camunda-webapp.war /tmp/
 COPY engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
 
 # Deploy WAR files
 RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
     && if [ -n "$TOMCAT_DIR" ]; then \
         mkdir -p ${TOMCAT_DIR}/webapps; \
-        cp /tmp/camunda-webapp*.war ${TOMCAT_DIR}/webapps/camunda.war; \
+        cp /tmp/camunda-webapp.war ${TOMCAT_DIR}/webapps/camunda.war; \
         cp /tmp/camunda-engine-rest-*-tomcat.war ${TOMCAT_DIR}/webapps/engine-rest.war; \
-        rm /tmp/camunda-webapp*.war /tmp/camunda-engine-rest-*-tomcat.war; \
+        rm /tmp/camunda-webapp.war /tmp/camunda-engine-rest-*-tomcat.war; \
     else \
         echo "Tomcat directory not found, cannot deploy WAR files"; \
         exit 1; \
