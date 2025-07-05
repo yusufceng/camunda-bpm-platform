@@ -56,11 +56,14 @@ RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
         find /opt/camunda -type d | head -10; \
     fi
 
-# Download PostgreSQL driver
-RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
+# Download PostgreSQL driver (already included in assembly)
+# We keep this as a fallback in case the assembly doesn't include it
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-9.*" -type d | head -1) \
     && if [ -n "$TOMCAT_DIR" ]; then \
-        wget -O ${TOMCAT_DIR}/lib/postgresql-42.7.3.jar \
-        "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar"; \
+        if [ ! -f ${TOMCAT_DIR}/lib/postgresql-42.7.3.jar ]; then \
+            wget -O ${TOMCAT_DIR}/lib/postgresql-42.7.3.jar \
+            "https://repo1.maven.org/maven2/org/postgresql/postgresql/42.7.3/postgresql-42.7.3.jar"; \
+        fi \
     else \
         echo "Tomcat directory not found, skipping PostgreSQL driver"; \
     fi
@@ -81,8 +84,8 @@ COPY distro/tomcat/assembly/src/conf/bpm-platform.xml /tmp/bpm-platform.xml.temp
 COPY distro/tomcat/assembly/src/conf/server.xml /tmp/server.xml.template
 COPY distro/tomcat/assembly/src/start-camunda.sh /opt/camunda/start-camunda.sh
 
-# Copy application WAR files
-COPY distro/tomcat/webapp/target/camunda-webapp*.war /tmp/
+# Copy application WAR files (using non-Jakarta WAR files for Tomcat 9)
+COPY distro/tomcat/webapp/target/camunda-webapp-tomcat-*.war /tmp/
 COPY engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
 
 # Deploy WAR files
