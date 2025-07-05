@@ -43,7 +43,7 @@ RUN echo "=== /opt/camunda content ===" && \
     ls -la /opt/camunda/conf 2>/dev/null || echo "conf directory not found"
 
 # Find Tomcat directory and create symlinks
-RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-9.0*" -type d | head -1) \
     && echo "TOMCAT_DIR=${TOMCAT_DIR}" \
     && if [ -n "$TOMCAT_DIR" ]; then \
         ln -sf ${TOMCAT_DIR}/conf /opt/camunda/conf; \
@@ -51,6 +51,8 @@ RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
         ln -sf ${TOMCAT_DIR}/lib /opt/camunda/lib; \
         ln -sf ${TOMCAT_DIR}/webapps /opt/camunda/webapps; \
         ln -sf ${TOMCAT_DIR}/logs /opt/camunda/logs; \
+        ln -sf ${TOMCAT_DIR}/temp /opt/camunda/temp; \
+        ln -sf ${TOMCAT_DIR}/work /opt/camunda/work; \
     else \
         echo "Tomcat directory not found, checking assembly structure"; \
         find /opt/camunda -type d | head -10; \
@@ -58,7 +60,7 @@ RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
 
 # Download PostgreSQL driver (already included in assembly)
 # We keep this as a fallback in case the assembly doesn't include it
-RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-9.*" -type d | head -1) \
+RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-9.0*" -type d | head -1) \
     && if [ -n "$TOMCAT_DIR" ]; then \
         if [ ! -f ${TOMCAT_DIR}/lib/postgresql-42.7.3.jar ]; then \
             wget -O ${TOMCAT_DIR}/lib/postgresql-42.7.3.jar \
