@@ -92,10 +92,10 @@ COPY engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
 RUN TOMCAT_DIR=$(find /opt/camunda -name "apache-tomcat-*" -type d | head -1) \
     && if [ -n "$TOMCAT_DIR" ]; then \
         mkdir -p ${TOMCAT_DIR}/webapps; \
-        cp /tmp/bpm-platform.xml.template ${TOMCAT_DIR}/conf/bpm-platform.xml; \
-        cp /tmp/server.xml.template ${TOMCAT_DIR}/conf/server.xml; \
         cp /tmp/camunda-webapp.war ${TOMCAT_DIR}/webapps/camunda.war; \
         cp /tmp/camunda-engine-rest-*-tomcat.war ${TOMCAT_DIR}/webapps/engine-rest.war; \
+        cp /tmp/bpm-platform.xml.template ${TOMCAT_DIR}/conf/bpm-platform.xml; \
+        cp /tmp/server.xml.template ${TOMCAT_DIR}/conf/server.xml; \
         rm /tmp/camunda-webapp.war /tmp/camunda-engine-rest-*-tomcat.war; \
     else \
         echo "Tomcat directory not found, cannot deploy WAR files"; \
