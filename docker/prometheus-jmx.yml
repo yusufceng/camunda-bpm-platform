@@ -1,0 +1,24 @@
+---
+startDelaySeconds: 0
+ssl: false
+lowercaseOutputName: false
+lowercaseOutputLabelNames: false
+rules:
+  - pattern: "metrics<name=process-definition-metrics, \\w+><>value"
+    name: camunda_process_definition_$1
+    help: "Process definition metrics"
+    type: GAUGE
+    labels:
+      type: "$1"
+  - pattern: "metrics<name=activity-instance-start, \\w+><>value"
+    name: camunda_activity_instance_start_$1
+    help: "Activity instance start metrics"
+    type: COUNTER
+    labels:
+      type: "$1"
+  - pattern: "metrics<name=job-execution, \\w+><>value"
+    name: camunda_job_execution_$1
+    help: "Job execution metrics"
+    type: COUNTER
+    labels:
+      type: "$1" 
