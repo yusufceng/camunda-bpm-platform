@@ -85,7 +85,7 @@ COPY distro/tomcat/assembly/src/conf/server.xml /tmp/server.xml.template
 COPY distro/tomcat/assembly/src/start-camunda.sh /opt/camunda/start-camunda.sh
 
 # Copy application WAR files (using non-Jakarta WAR files for Tomcat 9)
-COPY distro/tomcat/webapp/target/camunda-webapp-tomcat-*.war /tmp/
+COPY webapps/assembly/target/camunda-webapp-*.war /tmp/
 COPY engine-rest/assembly/target/camunda-engine-rest-*-tomcat.war /tmp/
 
 # Deploy WAR files
