@@ -18,9 +18,9 @@ RUN apk add --no-cache \
 RUN mkdir -p /camunda/lib /camunda/webapps /camunda/conf /camunda/docker /camunda/javaagent
 
 # Copy Tomcat assembly from Maven build
-COPY camunda-tomcat-assembly*.tar.gz /tmp/
-RUN tar xf /tmp/camunda-tomcat-assembly*.tar.gz -C /camunda --strip-components=2 && \
-    rm -rf /tmp/camunda-tomcat-assembly*.tar.gz
+COPY camunda-tomcat-assembly-*.tar.gz /tmp/
+RUN tar xf /tmp/camunda-tomcat-assembly-*.tar.gz -C /camunda --strip-components=2 && \
+    rm -rf /tmp/camunda-tomcat-assembly-*.tar.gz
 
 # Copy Camunda webapp
 COPY camunda-webapp.war /camunda/webapps/camunda.war
@@ -34,9 +34,9 @@ RUN curl -L -o /camunda/javaagent/jmx_prometheus_javaagent.jar \
     https://repo1.maven.org/maven2/io/prometheus/jmx/jmx_prometheus_javaagent/${JMX_PROMETHEUS_VERSION}/jmx_prometheus_javaagent-${JMX_PROMETHEUS_VERSION}.jar
 
 # Copy configuration scripts and files
-COPY docker/camunda-lib.sh /camunda/docker/
-COPY docker/camunda-tomcat.sh /camunda/docker/
-COPY docker/prometheus-jmx.yml /camunda/javaagent/
+COPY camunda-lib.sh /camunda/docker/
+COPY camunda-tomcat.sh /camunda/docker/
+COPY prometheus-jmx.yml /camunda/javaagent/
 
 # Final stage
 FROM alpine:3.18
