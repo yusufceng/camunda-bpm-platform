@@ -12,14 +12,15 @@
   <parent>
     <groupId>org.camunda.bpm.tomcat</groupId>
     <artifactId>camunda-tomcat</artifactId>
-    <version>7.23.0</version>
+    <version>7.24.0-SNAPSHOT</version>
+    <relativePath>..</relativePath>
   </parent>
   
   <properties>
     <skip-third-party-bom>false</skip-third-party-bom>
   </properties>
 
-  <name>Camunda Platform - tomcat Assembly</name>
+  <name>Camunda Platform - Tomcat Assembly</name>
 
   <dependencies>
     <dependency>
