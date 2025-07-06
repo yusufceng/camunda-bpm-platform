@@ -18,12 +18,12 @@ RUN apk add --no-cache \
 RUN mkdir -p /camunda/lib /camunda/webapps /camunda/conf /camunda/docker /camunda/javaagent
 
 # Copy Tomcat assembly from Maven build
-COPY source/distro/tomcat/assembly/target/camunda-tomcat-assembly*.tar.gz /tmp/
+COPY camunda-tomcat-assembly*.tar.gz /tmp/
 RUN tar xf /tmp/camunda-tomcat-assembly*.tar.gz -C /camunda --strip-components=2 && \
     rm -rf /tmp/camunda-tomcat-assembly*.tar.gz
 
 # Copy Camunda webapp
-COPY source/distro/tomcat/webapp/target/camunda-webapp.war /camunda/webapps/camunda.war
+COPY camunda-webapp.war /camunda/webapps/camunda.war
 
 # Download database drivers
 RUN curl -o /camunda/lib/postgresql.jar https://jdbc.postgresql.org/download/postgresql-${POSTGRESQL_VERSION}.jar && \
