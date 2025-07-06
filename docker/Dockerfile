@@ -18,9 +18,9 @@ RUN apk add --no-cache \
 RUN mkdir -p /camunda/lib /camunda/webapps /camunda/conf /camunda/docker /camunda/javaagent
 
 # Copy Tomcat assembly from Maven build
-COPY distro/tomcat/assembly/target/camunda-tomcat-*-assemble.tar.gz /tmp/
-RUN tar xf /tmp/camunda-tomcat-*-assemble.tar.gz -C /camunda --strip-components=2 && \
-    rm -rf /tmp/camunda-tomcat-*-assemble.tar.gz
+COPY distro/tomcat/assembly/target/camunda-tomcat-assembly*.tar.gz /tmp/
+RUN tar xf /tmp/camunda-tomcat-assembly*.tar.gz -C /camunda --strip-components=2 && \
+    rm -rf /tmp/camunda-tomcat-assembly*.tar.gz
 
 # Copy Camunda webapp
 COPY distro/tomcat/webapp/target/camunda-webapp.war /camunda/webapps/camunda.war
