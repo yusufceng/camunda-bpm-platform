@@ -5,7 +5,7 @@ RUN apk add --no-cache curl tar gzip bash tzdata tini xmlstarlet
 
 # Build-time argümanları olarak Nexus ve Camunda versiyon bilgilerini al
 ARG CAMUNDA_VERSION=7.22.0
-ARG NEXUS_URL=http://nexus.pia.local:8081/repository/camunda-raw
+ARG NEXUS_URL=http://18.157.182.187:32265/repository/camunda-raw
 ARG NEXUS_USERNAME
 ARG NEXUS_PASSWORD
 
@@ -37,7 +37,7 @@ RUN addgroup -g 1000 -S camunda && \
 # Camunda Tomcat dağıtımını Nexus'tan indir ve unpack et
 RUN mkdir -p /camunda \
     && curl -f -L -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" -o /tmp/camunda-bpm-tomcat.tar.gz \
-       "${NEXUS_URL}/camunda-bpm-tomcat-${CAMUNDA_VERSION}.tar.gz" \
+       "${NEXUS_URL}/camunda-bpm-tomcat-7.22.0.tar.gz" \
     && tar -xzf /tmp/camunda-bpm-tomcat.tar.gz -C /camunda --strip-components=1 \
     && rm /tmp/camunda-bpm-tomcat.tar.gz
 
