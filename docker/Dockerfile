@@ -4,8 +4,8 @@ FROM eclipse-temurin:17-jre-alpine
 RUN apk add --no-cache curl tar gzip bash tzdata tini xmlstarlet
 
 # Build-time argümanları olarak Nexus ve Camunda versiyon bilgilerini al
-ARG CAMUNDA_VERSION=7.23.0
-ARG NEXUS_URL=http://nexus.pia.local:8081/repository/maven-releases
+ARG CAMUNDA_VERSION=7.22.0
+ARG NEXUS_URL=http://nexus.pia.local:8081/repository/camunda-raw
 ARG NEXUS_USERNAME
 ARG NEXUS_PASSWORD
 
@@ -34,23 +34,18 @@ ENV JMX_PROMETHEUS_PORT=9404
 RUN addgroup -g 1000 -S camunda && \
     adduser -u 1000 -S camunda -G camunda -h /camunda -s /bin/bash -D camunda
 
-# Camunda Tomcat Assembly'yi Nexus'tan indir
-RUN mkdir -p /opt/camunda \
-    && curl -f -L -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" -o /tmp/camunda-tomcat.tar.gz \
-       "${NEXUS_URL}/org/camunda/bpm/camunda-bpm-platform-tomcat-assembly/${CAMUNDA_VERSION}/camunda-bpm-platform-tomcat-assembly-${CAMUNDA_VERSION}.tar.gz" \
-    && tar -xzf /tmp/camunda-tomcat.tar.gz -C /opt/camunda --strip-components=1 \
-    && rm /tmp/camunda-tomcat.tar.gz
-
-# Camunda Webapp WAR'ı Nexus'tan indir ve doğru yere taşı
-RUN curl -f -L -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" -o /tmp/camunda-webapp.war \
-       "${NEXUS_URL}/org/camunda/bpm/camunda-webapp/${CAMUNDA_VERSION}/camunda-webapp-${CAMUNDA_VERSION}.war" \
-    && mv /tmp/camunda-webapp.war /opt/camunda/webapps/camunda.war
+# Camunda Tomcat dağıtımını Nexus'tan indir ve unpack et
+RUN mkdir -p /camunda \
+    && curl -f -L -u "${NEXUS_USERNAME}:${NEXUS_PASSWORD}" -o /tmp/camunda-bpm-tomcat.tar.gz \
+       "${NEXUS_URL}/camunda-bpm-tomcat-${CAMUNDA_VERSION}.tar.gz" \
+    && tar -xzf /tmp/camunda-bpm-tomcat.tar.gz -C /camunda --strip-components=1 \
+    && rm /tmp/camunda-bpm-tomcat.tar.gz
 
 # Çalışma dizini ve kullanıcıyı ayarla
 WORKDIR /camunda
 USER root
 
-# Yardımcı scriptleri kopyala ve izinleri ayarla
+# Yardımcı scriptleri ve prometheus config dosyasını kopyala
 COPY camunda-lib.sh /camunda/
 COPY camunda-tomcat.sh /camunda/camunda.sh
 COPY prometheus-jmx.yml /camunda/javaagent/prometheus-jmx.yml
@@ -58,7 +53,7 @@ COPY prometheus-jmx.yml /camunda/javaagent/prometheus-jmx.yml
 # İzinleri ayarla ve kullanıcıyı değiştir
 RUN chmod +x /camunda/*.sh \
     && mkdir -p /camunda/javaagent \
-    && chown -R camunda:camunda /camunda /opt/camunda
+    && chown -R camunda:camunda /camunda
 
 USER camunda
 
