@@ -50,6 +50,9 @@ COPY camunda-lib.sh /camunda/
 COPY camunda-tomcat.sh /camunda/camunda.sh
 COPY prometheus-jmx.yml /camunda/javaagent/prometheus-jmx.yml
 
+# Orijinal server.xml dosyasını kopyala
+COPY ../camunda-bpm-platform/distro/tomcat/assembly/src/conf/server.xml /camunda/conf/server.xml
+
 # İzinleri ayarla ve kullanıcıyı değiştir
 RUN chmod +x /camunda/*.sh \
     && mkdir -p /camunda/javaagent \
